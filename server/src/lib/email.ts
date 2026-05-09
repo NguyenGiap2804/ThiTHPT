@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 type WelcomeEmailInput = {
   to: string;
@@ -6,36 +6,8 @@ type WelcomeEmailInput = {
 };
 
 const appUrl = process.env.APP_URL || process.env.FRONTEND_URL || "https://thithpt-website.web.app";
-const smtpHost = process.env.SMTP_HOST;
-const smtpPort = Number(process.env.SMTP_PORT || 587);
-const smtpSecure = process.env.SMTP_SECURE === "true";
-const smtpUser = process.env.SMTP_USER;
-const smtpPass = process.env.SMTP_PASS;
-const mailFrom = process.env.MAIL_FROM || smtpUser || "ThiTHPT <no-reply@thithpt.pro>";
-
-const isEmailConfigured = (): boolean => Boolean(smtpHost && smtpUser && smtpPass);
-
-const getTransporter = () => {
-  if (!isEmailConfigured()) {
-    return null;
-  }
-
-  const cleanPass = smtpPass?.replace(/\s+/g, "");
-
-  return nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true, // Use SSL
-    auth: {
-      user: smtpUser!,
-      pass: cleanPass!,
-    },
-    family: 4, // FORCE IPv4 at the socket level - THIS IS THE KEY
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  } as any); // Cast to any because some types might not show family, but it's supported by the underlying net.connect
-};
+const resendApiKey = process.env.RESEND_API_KEY;
+const mailFrom = process.env.MAIL_FROM || "ThiTHPT <onboarding@resend.dev>";
 
 const escapeHtml = (value: string): string =>
   value
@@ -46,23 +18,12 @@ const escapeHtml = (value: string): string =>
     .replace(/'/g, "&#039;");
 
 export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise<void> => {
-  const transporter = getTransporter();
-
-  if (!transporter) {
-    console.warn("[Email] Welcome email skipped: SMTP is not configured.");
+  if (!resendApiKey) {
+    console.warn("[Email] Welcome email skipped: RESEND_API_KEY is not configured.");
     return;
   }
 
-  // Verify connection configuration
-  try {
-    console.log("[Email] Verifying transporter configuration...");
-    await transporter.verify();
-    console.log("[Email] Transporter is ready to take messages.");
-  } catch (verifyError) {
-    console.error("[Email] Transporter verification failed:", verifyError);
-    return; // Don't even try to send if verification fails
-  }
-
+  const resend = new Resend(resendApiKey);
   const safeName = escapeHtml(name);
   const safeAppUrl = escapeHtml(appUrl);
   const subject = "Chào mừng bạn đến với Nền tảng Ôn thi THPT Quốc gia ThiTHPT!";
@@ -70,7 +31,7 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
   console.log(`[Email] Attempting to send welcome email to: ${to}`);
 
   try {
-    const info = await transporter.sendMail({
+    const { data, error } = await resend.emails.send({
       from: mailFrom,
       to,
       subject,
@@ -79,7 +40,7 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
         "",
         "Cảm ơn bạn đã chọn ThiTHPT làm bệ phóng cho hành trình chinh phục kỳ thi THPT Quốc gia. Hành trình đạt điểm cao của bạn chính thức bắt đầu từ hôm nay.",
         "",
-        "Tại ThiTHPT, chúng tôi tin vào sức mạnh của việc luyện tập thực tế. Quên đi mớ lý thuyết khô khan, đã đến lúc \"thực làm\" các bộ đề thi sát với đề minh họa nhất với sự đồng hành của hệ thống chấm điểm và giải thích chi tiết!",
+        'Tại ThiTHPT, chúng tôi tin vào sức mạnh của việc luyện tập thực tế. Quên đi mớ lý thuyết khô khan, đã đến lúc "thực làm" các bộ đề thi sát với đề minh họa nhất với sự đồng hành của hệ thống chấm điểm và giải thích chi tiết!',
         "",
         `Khám phá ngay: ${appUrl}`,
       ].join("\n"),
@@ -106,11 +67,11 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
                         <p style="margin:0 0 18px;font-size:18px;line-height:1.7;color:#e2e8f0;">Xin chào <strong style="color:#60a5fa;">${safeName}</strong>,</p>
                         <p style="margin:0 0 18px;font-size:17px;line-height:1.7;color:#94a3b8;">Cảm ơn bạn đã chọn <strong>ThiTHPT</strong> làm bệ phóng cho hành trình chinh phục kỳ thi THPT Quốc gia. Hành trình đạt điểm cao của bạn chính thức bắt đầu từ hôm nay.</p>
                         <p style="margin:0 0 28px;font-size:17px;line-height:1.7;color:#94a3b8;">Tại ThiTHPT, chúng tôi tin vào sức mạnh của việc luyện tập thực tế. Quên đi mớ lý thuyết khô khan, đã đến lúc "thực làm" các bộ đề thi sát với đề minh họa nhất với sự đồng hành của hệ thống chấm điểm và giải thích chi tiết!</p>
-                        
+
                         <div style="text-align:center;margin-top:32px;">
                           <a href="${safeAppUrl}" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:16px 32px;border-radius:12px;box-shadow:0 10px 15px -3px rgba(59, 130, 246, 0.5);">Khám Phá Nền Tảng Ngay</a>
                         </div>
-                        
+
                         <p style="margin:40px 0 0;font-size:14px;color:#64748b;text-align:center;">Chúc bạn có những phiên ôn luyện hiệu quả và đạt kết quả thật tốt!</p>
                       </td>
                     </tr>
@@ -122,7 +83,13 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
         </html>
       `,
     });
-    console.log(`[Email] Welcome email sent successfully to: ${to}. MessageId: ${info.messageId}`);
+
+    if (error) {
+      console.error(`[Email] Resend API error for ${to}:`, error);
+      throw new Error(error.message);
+    }
+
+    console.log(`[Email] Welcome email sent successfully to: ${to}. Id: ${data?.id}`);
   } catch (error) {
     console.error(`[Email] Failed to send welcome email to ${to}:`, error);
     throw error;
