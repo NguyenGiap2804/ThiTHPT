@@ -21,14 +21,12 @@ const getTransporter = () => {
   }
 
   return nodemailer.createTransport({
-    host: smtpHost!,
-    port: smtpPort,
-    secure: smtpSecure,
+    service: "gmail",
     auth: {
       user: smtpUser!,
       pass: smtpPass!,
     },
-    connectionTimeout: 10000, // 10 seconds
+    connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
   });
