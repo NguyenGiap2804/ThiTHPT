@@ -235,7 +235,7 @@ export const HomePage: React.FC = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-[9px] font-bold text-slate-400 uppercase">{activity.date}</span>
                           <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">
-                            {activity.score?.toFixed(1)}đ
+                            {Number(activity.score || 0).toFixed(1)}đ
                           </span>
                         </div>
                       </div>

@@ -60,7 +60,9 @@ export const ExamSessionPage: React.FC = () => {
         message: `Bạn đã hoàn thành bài thi ${exam.title} với điểm số ${savedAttempt.score}.`,
         type: 'success',
       });
-      navigate(`/result/${savedAttempt.id}`);
+      
+      // Navigate and REPLACE the history entry so they can't go back
+      navigate(`/result/${savedAttempt.id}`, { replace: true });
     } catch (error) {
       console.error('Failed to submit attempt', error);
       setIsFinished(false);
