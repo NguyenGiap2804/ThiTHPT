@@ -94,6 +94,7 @@ export const ExamManagement: React.FC = () => {
     imagePages: [],
     questionStructure: [],
     answerKey: {},
+    explanations: {},
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,6 +102,7 @@ export const ExamManagement: React.FC = () => {
   const [uploadStatus, setUploadStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -313,6 +315,7 @@ export const ExamManagement: React.FC = () => {
         imagePages: [],
         questionStructure: [],
         answerKey: {},
+        explanations: {},
       });
       setActiveTab('info');
       setUploadStatus('');
@@ -321,6 +324,90 @@ export const ExamManagement: React.FC = () => {
       alert('Không thể tạo đề thi. Vui lòng kiểm tra lại kết nối.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        
+        // Expected format: { "answers": { "q1": "A", ... }, "explanations": { "q1": "...", ... } }
+        // Or if it's just answers: { "q1": "A", ... }
+        
+        let importedAnswers = {};
+        let importedExplanations = {};
+
+        if (data.answers) {
+          importedAnswers = data.answers;
+          importedExplanations = data.explanations || {};
+        } else {
+          // Assume the root is the answer key
+          importedAnswers = data;
+        }
+
+        setNewExam(prev => ({
+          ...prev,
+          answerKey: { ...prev.answerKey, ...importedAnswers },
+          explanations: { ...prev.explanations, ...importedExplanations }
+        }));
+
+        addNotification({
+          title: 'Thành công',
+          message: 'Đã nhập dữ liệu từ file JSON.',
+          type: 'success'
+        });
+      } catch (err) {
+        addNotification({
+          title: 'Lỗi',
+          message: 'File JSON không đúng định dạng.',
+          type: 'error'
+        });
+      }
+    };
+    reader.readAsText(file);
+    if (jsonInputRef.current) jsonInputRef.current.value = '';
+  };
+
+  const handlePasteImage = async (e: React.ClipboardEvent<HTMLTextAreaElement>, questionId: string, isEdit: boolean = false) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (!file) continue;
+
+        try {
+          addNotification({ title: 'Đang tải...', message: 'Đang xử lý ảnh từ bộ nhớ tạm...', type: 'info' });
+          const upload = await uploadApi.file(file);
+          const imageUrl = getImageUrl(upload.url);
+          const markdownImg = `\n![Giải thích](${imageUrl})\n`;
+          
+          if (isEdit) {
+            setEditForm(prev => ({
+              ...prev,
+              explanations: {
+                ...prev.explanations,
+                [questionId]: (prev.explanations?.[questionId] || '') + markdownImg
+              }
+            }));
+          } else {
+            setNewExam(prev => ({
+              ...prev,
+              explanations: {
+                ...prev.explanations,
+                [questionId]: (prev.explanations?.[questionId] || '') + markdownImg
+              }
+            }));
+          }
+        } catch (err) {
+          addNotification({ title: 'Lỗi', message: 'Không thể tải ảnh dán lên.', type: 'error' });
+        }
+      }
     }
   };
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1008,38 +1095,64 @@ export const ExamManagement: React.FC = () => {
                   <div className="space-y-8">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">Nhập đáp án</h3>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">
-                        <FileUp className="w-4 h-4" />
-                        Import JSON
-                      </button>
+                      <div>
+                        <input 
+                          type="file" 
+                          ref={jsonInputRef} 
+                          className="hidden" 
+                          accept=".json"
+                          onChange={handleImportJson}
+                        />
+                        <button 
+                          onClick={() => jsonInputRef.current?.click()}
+                          className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                        >
+                          <FileUp className="w-4 h-4" />
+                          Import JSON
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-8">
                       {/* Part I Answers */}
                       <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                         <h4 className="font-black text-slate-900 mb-6">Phần I</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                        <div className="space-y-4">
                           {newExam.questionStructure?.filter(q => q.part === 1).map(q => (
-                            <div key={q.id} className="flex items-center gap-3">
-                              <span className="text-sm font-bold text-slate-400 w-12">{q.label}</span>
-                              <div className="flex gap-1">
-                                {['A', 'B', 'C', 'D'].map(opt => (
-                                  <button
-                                    key={opt}
-                                    onClick={() => setNewExam(prev => ({
-                                      ...prev,
-                                      answerKey: { ...prev.answerKey, [q.id]: opt }
-                                    }))}
-                                    className={cn(
-                                      "w-8 h-8 rounded-full border-2 font-black text-xs flex items-center justify-center transition-all",
-                                      newExam.answerKey?.[q.id] === opt
-                                        ? "bg-blue-600 border-blue-600 text-white shadow-md"
-                                        : "bg-white border-slate-200 text-slate-400 hover:border-blue-300"
-                                    )}
-                                  >
-                                    {opt}
-                                  </button>
-                                ))}
+                            <div key={q.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 bg-white rounded-2xl border border-slate-100">
+                              <div className="md:col-span-3 flex items-center gap-3">
+                                <span className="text-sm font-bold text-slate-900 w-12">{q.label}</span>
+                                <div className="flex gap-1">
+                                  {['A', 'B', 'C', 'D'].map(opt => (
+                                    <button
+                                      key={opt}
+                                      onClick={() => setNewExam(prev => ({
+                                        ...prev,
+                                        answerKey: { ...prev.answerKey, [q.id]: opt }
+                                      }))}
+                                      className={cn(
+                                        "w-8 h-8 rounded-full border-2 font-black text-xs flex items-center justify-center transition-all",
+                                        newExam.answerKey?.[q.id] === opt
+                                          ? "bg-blue-600 border-blue-600 text-white shadow-md"
+                                          : "bg-white border-slate-200 text-slate-400 hover:border-blue-300"
+                                      )}
+                                    >
+                                      {opt}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="md:col-span-9">
+                                <textarea
+                                  placeholder="Đáp án chi tiết / Lời giải (Có thể dán ảnh từ clipboard)..."
+                                  value={newExam.explanations?.[q.id] || ''}
+                                  onPaste={(e) => handlePasteImage(e, q.id)}
+                                  onChange={e => setNewExam(prev => ({
+                                    ...prev,
+                                    explanations: { ...prev.explanations, [q.id]: e.target.value }
+                                  }))}
+                                  className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:border-blue-300 transition-all min-h-[60px]"
+                                />
                               </div>
                             </div>
                           ))}
@@ -1051,50 +1164,65 @@ export const ExamManagement: React.FC = () => {
                         <h4 className="font-black text-slate-900 mb-6">Phần II</h4>
                         <div className="space-y-6">
                           {newExam.questionStructure?.filter(q => q.part === 2).map(q => (
-                            <div key={q.id} className="p-4 bg-white rounded-2xl border border-slate-100">
-                              <p className="text-sm font-black text-slate-900 mb-4">{q.label}</p>
-                              <div className="grid grid-cols-4 gap-4">
-                                {['a', 'b', 'c', 'd'].map(sub => (
-                                  <div key={sub} className="flex flex-col items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-400 uppercase">{sub}</span>
-                                    <div className="flex gap-1 w-full">
-                                      <button
-                                        onClick={() => setNewExam(prev => ({
-                                          ...prev,
-                                          answerKey: {
-                                            ...prev.answerKey,
-                                            [q.id]: { ...prev.answerKey?.[q.id], [sub]: true }
-                                          }
-                                        }))}
-                                        className={cn(
-                                          "flex-1 h-8 rounded-lg border-2 font-black text-xs flex items-center justify-center transition-all",
-                                          newExam.answerKey?.[q.id]?.[sub] === true
-                                            ? "bg-blue-600 border-blue-600 text-white shadow-md"
-                                            : "bg-white border-slate-200 text-slate-400 hover:border-blue-300"
-                                        )}
-                                      >
-                                        Đ
-                                      </button>
-                                      <button
-                                        onClick={() => setNewExam(prev => ({
-                                          ...prev,
-                                          answerKey: {
-                                            ...prev.answerKey,
-                                            [q.id]: { ...prev.answerKey?.[q.id], [sub]: false }
-                                          }
-                                        }))}
-                                        className={cn(
-                                          "flex-1 h-8 rounded-lg border-2 font-black text-xs flex items-center justify-center transition-all",
-                                          newExam.answerKey?.[q.id]?.[sub] === false
-                                            ? "bg-blue-600 border-blue-600 text-white shadow-md"
-                                            : "bg-white border-slate-200 text-slate-400 hover:border-blue-300"
-                                        )}
-                                      >
-                                        S
-                                      </button>
+                            <div key={q.id} className="p-5 bg-white rounded-2xl border border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-6">
+                              <div className="md:col-span-5">
+                                <p className="text-sm font-black text-slate-900 mb-4">{q.label}</p>
+                                <div className="grid grid-cols-4 gap-2">
+                                  {['a', 'b', 'c', 'd'].map(sub => (
+                                    <div key={sub} className="flex flex-col items-center gap-2">
+                                      <span className="text-[10px] font-black text-slate-400 uppercase">{sub}</span>
+                                      <div className="flex gap-1 w-full">
+                                        <button
+                                          onClick={() => setNewExam(prev => ({
+                                            ...prev,
+                                            answerKey: {
+                                              ...prev.answerKey,
+                                              [q.id]: { ...(prev.answerKey?.[q.id] || {}), [sub]: true }
+                                            }
+                                          }))}
+                                          className={cn(
+                                            "flex-1 h-8 rounded-lg border-2 font-black text-xs flex items-center justify-center transition-all",
+                                            newExam.answerKey?.[q.id]?.[sub] === true
+                                              ? "bg-blue-600 border-blue-600 text-white shadow-md"
+                                              : "bg-white border-slate-200 text-slate-400"
+                                          )}
+                                        >
+                                          Đ
+                                        </button>
+                                        <button
+                                          onClick={() => setNewExam(prev => ({
+                                            ...prev,
+                                            answerKey: {
+                                              ...prev.answerKey,
+                                              [q.id]: { ...(prev.answerKey?.[q.id] || {}), [sub]: false }
+                                            }
+                                          }))}
+                                          className={cn(
+                                            "flex-1 h-8 rounded-lg border-2 font-black text-xs flex items-center justify-center transition-all",
+                                            newExam.answerKey?.[q.id]?.[sub] === false
+                                              ? "bg-blue-600 border-blue-600 text-white shadow-md"
+                                              : "bg-white border-slate-200 text-slate-400"
+                                          )}
+                                        >
+                                          S
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="md:col-span-7">
+                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Đáp án chi tiết</label>
+                                <textarea
+                                  placeholder="Giải thích các ý Đúng/Sai..."
+                                  value={newExam.explanations?.[q.id] || ''}
+                                  onPaste={(e) => handlePasteImage(e, q.id)}
+                                  onChange={e => setNewExam(prev => ({
+                                    ...prev,
+                                    explanations: { ...prev.explanations, [q.id]: e.target.value }
+                                  }))}
+                                  className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:border-blue-300 transition-all min-h-[80px]"
+                                />
                               </div>
                             </div>
                           ))}
@@ -1104,20 +1232,34 @@ export const ExamManagement: React.FC = () => {
                       {/* Part III Answers */}
                       <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                         <h4 className="font-black text-slate-900 mb-6">Phần III</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-4">
                           {newExam.questionStructure?.filter(q => q.part === 3).map(q => (
-                            <div key={q.id} className="flex items-center gap-4">
-                              <span className="text-sm font-bold text-slate-400 w-12">{q.label}</span>
-                              <input 
-                                type="text"
-                                placeholder="Đáp án..."
-                                value={newExam.answerKey?.[q.id] || ''}
-                                onChange={e => setNewExam(prev => ({
-                                  ...prev,
-                                  answerKey: { ...prev.answerKey, [q.id]: e.target.value }
-                                }))}
-                                className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 focus:border-blue-500 transition-all"
-                              />
+                            <div key={q.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 bg-white rounded-2xl border border-slate-100">
+                              <div className="md:col-span-4 flex items-center gap-3">
+                                <span className="text-sm font-bold text-slate-900 w-12">{q.label}</span>
+                                <input 
+                                  type="text"
+                                  placeholder="Đáp án..."
+                                  value={newExam.answerKey?.[q.id] || ''}
+                                  onChange={e => setNewExam(prev => ({
+                                    ...prev,
+                                    answerKey: { ...prev.answerKey, [q.id]: e.target.value }
+                                  }))}
+                                  className="flex-1 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-slate-700 focus:bg-white focus:border-blue-500 transition-all"
+                                />
+                              </div>
+                              <div className="md:col-span-8">
+                                <textarea
+                                  placeholder="Giải thích cách giải bài toán..."
+                                  value={newExam.explanations?.[q.id] || ''}
+                                  onPaste={(e) => handlePasteImage(e, q.id)}
+                                  onChange={e => setNewExam(prev => ({
+                                    ...prev,
+                                    explanations: { ...prev.explanations, [q.id]: e.target.value }
+                                  }))}
+                                  className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:border-blue-300 transition-all min-h-[60px]"
+                                />
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1435,9 +1577,10 @@ export const ExamManagement: React.FC = () => {
                         )}
                         <textarea
                           value={editForm.explanations?.[q.id] || ''}
+                          onPaste={(e) => handlePasteImage(e, q.id, true)}
                           onChange={event => setEditForm(prev => ({ ...prev, explanations: { ...prev.explanations, [q.id]: event.target.value } }))}
-                          className="min-h-20 w-full rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm font-medium outline-none"
-                          placeholder="Lời giải / ghi chú cho câu này"
+                          className="min-h-20 w-full rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm font-medium outline-none focus:border-blue-300 transition-all"
+                          placeholder="Lời giải / ghi chú cho câu này (Có thể dán ảnh từ clipboard)"
                         />
                       </div>
                     ))}
