@@ -18,26 +18,98 @@ import logoIcon from '../assets/logoIcon.jpg';
 
 type AuthMode = 'login' | 'register';
 
+type LoginFormState = {
+  email: string;
+  password: string;
+};
+
+type RegisterFormState = LoginFormState & {
+  name: string;
+  confirmPassword: string;
+};
+
+const initialLoginForm: LoginFormState = {
+  email: '',
+  password: '',
+};
+
+const initialRegisterForm: RegisterFormState = {
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+};
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const getPasswordChecks = (password: string) => [
+  { label: '8-15 ký tự', isValid: password.length >= 8 && password.length <= 15 },
+  { label: 'Chữ thường', isValid: /[a-z]/.test(password) },
+  { label: 'Chữ in hoa', isValid: /[A-Z]/.test(password) },
+  { label: 'Chữ số', isValid: /\d/.test(password) },
+  { label: 'Ký tự đặc biệt', isValid: /[^A-Za-z0-9]/.test(password) },
+];
+
 export const LoginPage: React.FC = () => {
   const { login, register } = useApp();
   const [mode, setMode] = useState<AuthMode>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [loginForm, setLoginForm] = useState<LoginFormState>(initialLoginForm);
+  const [registerForm, setRegisterForm] = useState<RegisterFormState>(initialRegisterForm);
+
+  const passwordChecks = getPasswordChecks(registerForm.password);
+  const passwordStrength = passwordChecks.filter(check => check.isValid).length;
+  const passwordStrengthLabel = passwordStrength >= 5 ? 'Mạnh' : passwordStrength >= 3 ? 'Khá' : 'Yếu';
+  const passwordStrengthClass = passwordStrength >= 5 ? 'bg-emerald-500' : passwordStrength >= 3 ? 'bg-amber-500' : 'bg-red-500';
+
+  const handleModeChange = () => {
+    const nextMode: AuthMode = mode === 'login' ? 'register' : 'login';
+
+    setError(null);
+    setShowPassword(false);
+
+    if (nextMode === 'register') {
+      setRegisterForm(initialRegisterForm);
+    } else {
+      setLoginForm(initialLoginForm);
+    }
+
+    setMode(nextMode);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    const activeEmail = mode === 'login' ? loginForm.email.trim() : registerForm.email.trim();
+
+    if (!emailPattern.test(activeEmail)) {
+      setError('Email không đúng định dạng.');
+      return;
+    }
+
+    if (mode === 'register') {
+      const trimmedName = registerForm.name.trim();
+
+      if (!trimmedName) {
+        setError('Vui lòng nhập họ và tên.');
+        return;
+      }
+
+      if (registerForm.password !== registerForm.confirmPassword) {
+        setError('Mật khẩu xác nhận không khớp.');
+        return;
+      }
+    }
+
+    setIsLoading(true);
     try {
       if (mode === 'login') {
-        await login(email, password);
+        await login(activeEmail, loginForm.password);
       } else {
-        await register(email, password, name);
+        await register(activeEmail, registerForm.password, registerForm.name.trim());
       }
     } catch (err: any) {
       console.error(err);
@@ -193,7 +265,7 @@ export const LoginPage: React.FC = () => {
             </AnimatePresence>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate autoComplete={mode === 'register' ? 'off' : 'on'} className="space-y-5">
             {mode === 'register' && (
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Họ và tên</label>
@@ -201,10 +273,12 @@ export const LoginPage: React.FC = () => {
                   <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                   <input 
                     type="text" 
+                    name="register-name"
+                    autoComplete="name"
                     placeholder="Nguyễn Văn A"
                     required
-                    value={name}
-                    onChange={e => setName(e.target.value)}
+                    value={registerForm.name}
+                    onChange={e => setRegisterForm(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm"
                   />
                 </div>
@@ -217,10 +291,19 @@ export const LoginPage: React.FC = () => {
                 <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                 <input 
                   type="email" 
+                  name={mode === 'login' ? 'login-email' : 'register-email'}
+                  autoComplete={mode === 'login' ? 'username' : 'off'}
                   placeholder="name@email.com"
                   required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  value={mode === 'login' ? loginForm.email : registerForm.email}
+                  onChange={e => {
+                    const nextEmail = e.target.value;
+                    if (mode === 'login') {
+                      setLoginForm(prev => ({ ...prev, email: nextEmail }));
+                    } else {
+                      setRegisterForm(prev => ({ ...prev, email: nextEmail }));
+                    }
+                  }}
                   className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm"
                 />
               </div>
@@ -237,10 +320,19 @@ export const LoginPage: React.FC = () => {
                 <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                 <input 
                   type={showPassword ? "text" : "password"} 
+                  name={mode === 'login' ? 'login-password' : 'register-password'}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   placeholder="••••••••"
                   required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  value={mode === 'login' ? loginForm.password : registerForm.password}
+                  onChange={e => {
+                    const nextPassword = e.target.value;
+                    if (mode === 'login') {
+                      setLoginForm(prev => ({ ...prev, password: nextPassword }));
+                    } else {
+                      setRegisterForm(prev => ({ ...prev, password: nextPassword }));
+                    }
+                  }}
                   className="w-full pl-14 pr-14 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm"
                 />
                 <button
@@ -252,6 +344,59 @@ export const LoginPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {mode === 'register' && (
+              <>
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-4 mb-3">
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Độ mạnh mật khẩu</span>
+                    <span className={cn(
+                      'text-xs font-black uppercase tracking-widest',
+                      passwordStrength >= 5 ? 'text-emerald-600' : passwordStrength >= 3 ? 'text-amber-600' : 'text-red-500'
+                    )}>
+                      {passwordStrengthLabel}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                    <div
+                      className={cn('h-full rounded-full transition-all', passwordStrengthClass)}
+                      style={{ width: `${Math.max(passwordStrength, 1) * 20}%` }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {passwordChecks.map(check => (
+                      <div
+                        key={check.label}
+                        className={cn(
+                          'flex items-center gap-2 text-xs font-bold',
+                          check.isValid ? 'text-emerald-600' : 'text-slate-400'
+                        )}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{check.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Xác nhận mật khẩu</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="register-confirm-password"
+                      autoComplete="new-password"
+                      placeholder="********"
+                      required
+                      value={registerForm.confirmPassword}
+                      onChange={e => setRegisterForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <button 
               type="submit"
@@ -273,7 +418,7 @@ export const LoginPage: React.FC = () => {
              <p className="text-slate-500 text-sm font-medium">
                {mode === 'login' ? "Bạn là thành viên mới?" : "Bạn đã có tài khoản?"}
                <button 
-                 onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                 onClick={handleModeChange}
                  className="ml-2 text-blue-600 font-black hover:underline underline-offset-8 decoration-2"
                >
                  {mode === 'login' ? 'Đăng ký miễn phí' : 'Đăng nhập tại đây'}

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { generateToken } from "../middleware/auth.js";
 import { findUserByEmail, createUser, emailExists, findUserById } from "../lib/queries/userQueries.js";
+import { sendWelcomeEmail } from "../lib/email.js";
 
 /**
  * Login user
@@ -78,41 +79,34 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, name } = req.body;
     const role = "student";
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedName = String(name || "").trim();
 
     // Validate input
-    if (!email || !password || !name) {
+    if (!normalizedEmail || !password || !normalizedName) {
       res.status(400).json({
         error: "Bad Request",
-        message: "Email, password, and name are required",
+        message: "Vui lòng nhập đầy đủ họ tên, email và mật khẩu.",
       });
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       res.status(400).json({
         error: "Bad Request",
-        message: "Invalid email format",
-      });
-      return;
-    }
-
-    // Validate password strength (at least 6 characters)
-    if (password.length < 6) {
-      res.status(400).json({
-        error: "Bad Request",
-        message: "Password must be at least 6 characters",
+        message: "Email không đúng định dạng.",
       });
       return;
     }
 
     // Check if email already exists in database
-    const emailAlreadyExists = await emailExists(email);
+    const emailAlreadyExists = await emailExists(normalizedEmail);
     if (emailAlreadyExists) {
       res.status(409).json({
         error: "Conflict",
-        message: "Email already registered",
+        message: "Email này đã được đăng ký.",
       });
       return;
     }
@@ -122,7 +116,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const userId = uuidv4();
 
     // Create user in database
-    const newUser = await createUser(userId, email, hashedPassword, name, role);
+    const newUser = await createUser(userId, normalizedEmail, hashedPassword, normalizedName, role);
 
     if (!newUser) {
       res.status(500).json({
@@ -131,6 +125,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       });
       return;
     }
+
+    void sendWelcomeEmail({ to: newUser.email, name: newUser.name }).catch((error) => {
+      console.warn("Send welcome email failed:", error);
+    });
 
     const token = generateToken({
       id: newUser.id,
