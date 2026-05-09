@@ -4,6 +4,7 @@ import { BookOpen, FileText, History, LayoutDashboard, Home, Bell, User, LogOut,
 import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
+import logIcon from '../assets/logoIcon.jpg';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
@@ -38,8 +39,8 @@ export const Navbar: React.FC = () => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to={isAdmin ? "/admin" : "/"} className="flex items-center gap-2 group">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
-                  <BookOpen className="w-6 h-6" />
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-50 group-hover:scale-110 transition-transform overflow-hidden border border-slate-100">
+                  <img src={logIcon} alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <span className="text-xl font-black text-slate-900 tracking-tight">Thi<span className="text-blue-600">THPT</span></span>
               </Link>

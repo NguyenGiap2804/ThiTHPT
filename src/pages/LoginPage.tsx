@@ -9,9 +9,12 @@ import {
   User, 
   Loader2,
   CheckCircle2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import loginBg from '../assets/login-bg.png';
+import logoBackground from '../assets/logo.png';
+import logoIcon from '../assets/logoIcon.jpg';
 
 type AuthMode = 'login' | 'register';
 
@@ -19,9 +22,9 @@ export const LoginPage: React.FC = () => {
   const { login, register } = useApp();
   const [mode, setMode] = useState<AuthMode>('login');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Form State
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -54,14 +57,11 @@ export const LoginPage: React.FC = () => {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-16 overflow-hidden"
       >
-        {/* Background Image with Overlay */}
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-[20000ms] hover:scale-110"
-          style={{ backgroundImage: `url(${loginBg})` }}
+          style={{ backgroundImage: `url(${logoBackground})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/90 via-indigo-900/60 to-transparent" />
-        
-        {/* Decorative Mesh Overlay */}
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
 
         <div className="relative z-10">
@@ -91,7 +91,7 @@ export const LoginPage: React.FC = () => {
             transition={{ delay: 0.5 }}
             className="text-blue-100/80 text-xl font-medium max-w-lg leading-relaxed"
           >
-            Hệ thống luyện thi thông minh giúp bạn chinh phục mọi kỳ thi THPT với kho đề đồ sộ và lời giải chi tiết từ các chuyên gia.
+            Hệ thống luyện thi thông minh giúp bạn chinh phục mọi kỳ thi THPT với kho đề đồ sộ và lời giải chi tiết.
           </motion.p>
         </div>
 
@@ -121,7 +121,12 @@ export const LoginPage: React.FC = () => {
             className="mt-12 flex items-center gap-4 text-blue-200/50 text-sm"
           >
             <div className="h-px w-12 bg-blue-200/20" />
-            <span>Được tin dùng bởi hơn 50,000 học sinh toà      {/* Right Side: Auth Form */}
+            <span>Được tin dùng bởi hơn 50,000 học sinh toàn quốc</span>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* Right Side: Auth Form */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 lg:p-20 relative bg-slate-50/50">
         <div className="w-full max-w-md">
           {/* Brand Identity Header */}
@@ -129,9 +134,15 @@ export const LoginPage: React.FC = () => {
             <motion.div 
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-blue-200 mb-6 rotate-3 hover:rotate-0 transition-transform duration-500"
+              className="mb-6 group"
             >
-              <Sparkles className="w-10 h-10 text-white" />
+              <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-2xl shadow-blue-100 border border-slate-100 rotate-3 group-hover:rotate-0 transition-transform duration-500 overflow-hidden">
+                <img 
+                  src={logoIcon} 
+                  alt="THPT.PRO Logo" 
+                  className="w-full h-full object-cover" 
+                />
+              </div>
             </motion.div>
             <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-2">THPT.PRO</h2>
             <div className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-blue-100">
@@ -154,12 +165,12 @@ export const LoginPage: React.FC = () => {
                 <p className="text-slate-500 font-medium leading-relaxed max-w-[280px] mx-auto">
                   {mode === 'login' 
                     ? 'Đăng nhập để tiếp tục hành trình chinh phục điểm 10.' 
-                    : 'Tạo tài khoản để mở khóa kho đề thi và lời giải chi tiết.'}
+                    : 'Tạo tài khoản để mở khóa kho đề thi và lời giải.'}
                 </p>
               </motion.div>
             </AnimatePresence>
 
-            {/* ERROR NOTIFICATION - PROMINENT MOCKUP */}
+            {/* Error Notification */}
             <AnimatePresence>
               {error && (
                 <motion.div
@@ -185,7 +196,7 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {mode === 'register' && (
               <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Họ và tên của bạn</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Họ và tên</label>
                 <div className="relative group">
                   <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                   <input 
@@ -194,14 +205,14 @@ export const LoginPage: React.FC = () => {
                     required
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                    className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm"
                   />
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Địa chỉ Email</label>
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
               <div className="relative group">
                 <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                 <input 
@@ -210,14 +221,14 @@ export const LoginPage: React.FC = () => {
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                  className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Mật khẩu bảo mật</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Mật khẩu</label>
                 {mode === 'login' && (
                   <a href="#" className="text-[11px] font-bold text-blue-600 uppercase tracking-wider hover:text-blue-700 transition-colors">Quên mật khẩu?</a>
                 )}
@@ -225,13 +236,20 @@ export const LoginPage: React.FC = () => {
               <div className="relative group">
                 <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   placeholder="••••••••"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-14 pr-6 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                  className="w-full pl-14 pr-14 py-4.5 bg-white border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:shadow-xl focus:shadow-blue-500/5 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300 shadow-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-blue-500 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -251,7 +269,6 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Bottom Switcher */}
           <div className="mt-12 text-center">
              <p className="text-slate-500 text-sm font-medium">
                {mode === 'login' ? "Bạn là thành viên mới?" : "Bạn đã có tài khoản?"}
@@ -263,6 +280,7 @@ export const LoginPage: React.FC = () => {
                </button>
              </p>
           </div>
+          
           <div className="mt-12 pt-8 border-t border-slate-200 flex flex-wrap justify-center gap-x-8 gap-y-2">
             <a href="#" className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600">Điều khoản</a>
             <a href="#" className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600">Bảo mật</a>

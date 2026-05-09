@@ -11,17 +11,20 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ExamManagement } from './pages/admin/ExamManagement';
 import { SystemSettings } from './pages/admin/SystemSettings';
 import { UserManagement } from './pages/admin/UserManagement';
-import { LoginPage } from './pages/LoginPage';
+import { Toast } from './components/Toast';
 
 const AppRoutes = () => {
-  const { currentUser } = useApp();
+  const { currentUser, notifications, markNotificationRead } = useApp();
 
   if (!currentUser) {
     return (
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <>
+        <Toast notifications={notifications} onClose={markNotificationRead} />
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </>
     );
   }
 
@@ -32,6 +35,7 @@ const AppRoutes = () => {
       "min-h-screen flex flex-col bg-slate-50 font-sans",
       !isAdmin && "pb-20 md:pb-0" // Space for bottom nav on mobile
     )}>
+      <Toast notifications={notifications} onClose={markNotificationRead} />
       <Navbar />
       <main className="flex-1">
         <Routes>

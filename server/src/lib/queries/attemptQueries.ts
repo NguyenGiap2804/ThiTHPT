@@ -154,9 +154,9 @@ export const getAttemptWithDetails = async (id: string) => {
   const answers = rows.map((row: any) => ({
     questionId: row.questionId,
     selectedOption: row.selectedOption,
-    trueFalseAnswers: typeof row.trueFalseAnswers === 'string' ? JSON.parse(row.trueFalseAnswers) : row.trueFalseAnswers,
+    trueFalseAnswers: parseJson(row.trueFalseAnswers),
     shortAnswer: row.shortAnswer,
-    correctAnswer: typeof row.correctAnswer === 'string' ? JSON.parse(row.correctAnswer) : row.correctAnswer,
+    correctAnswer: parseJson(row.correctAnswer),
     isCorrect: row.isCorrect,
     points: Number(row.points ?? 0),
     explanation: row.explanation ?? null,
@@ -245,7 +245,7 @@ export const calculateAttemptScore = async (
     maxRawScore += 1;
 
     const submitted = (submittedByQuestion.get(row.questionId) || { questionId: row.questionId }) as SubmittedAttemptAnswer;
-    const correctAnswer = typeof row.correctAnswer === 'string' ? JSON.parse(row.correctAnswer) : row.correctAnswer;
+    const correctAnswer = parseJson(row.correctAnswer);
     let points = 0;
     let isCorrect: boolean | null = false;
     let isEmpty = false;
@@ -256,7 +256,7 @@ export const calculateAttemptScore = async (
       isCorrect = !isEmpty && normalizeText(selectedOption) === normalizeText(correctAnswer);
       points = isCorrect ? 1 : 0;
     } else if (row.type === "true_false") {
-      const subQuestions = typeof row.subQuestions === 'string' ? JSON.parse(row.subQuestions) : (row.subQuestions || ["a", "b", "c", "d"]);
+      const subQuestions = parseStringArray(row.subQuestions, ["a", "b", "c", "d"]);
       const expected = typeof correctAnswer === "object" && correctAnswer !== null ? correctAnswer as Record<string, boolean> : {};
       const actual = submitted.trueFalseAnswers || {};
       const answeredCount = subQuestions.filter((sub: string) => actual[sub] !== undefined && actual[sub] !== null).length;
