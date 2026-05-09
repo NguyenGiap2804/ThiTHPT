@@ -5,6 +5,10 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import fs from "fs";
+import dns from "dns";
+
+// Force IPv4 to avoid ENETUNREACH issues with IPv6 on some hosting providers
+dns.setDefaultResultOrder("ipv4first");
 
 dotenv.config();
 
