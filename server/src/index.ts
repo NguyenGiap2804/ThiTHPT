@@ -17,6 +17,10 @@ import notificationRoutes from "./routes/notifications.js";
 import { getUploadStorageLabel } from "./lib/storage.js";
 
 const app: Express = express();
+
+// Trust proxy for Render/Cloud environments (needed for rate-limiting)
+app.set("trust proxy", 1);
+
 const PORT = process.env.PORT || 3001;
 
 const uploadsDir = path.join(process.cwd(), "uploads");
