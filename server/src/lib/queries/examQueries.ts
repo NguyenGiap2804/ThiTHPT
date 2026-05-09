@@ -13,8 +13,14 @@ export const getAllExams = async (filters?: {
   status?: string;
 }) => {
   let text = `
-    SELECT id, title, "subjectId", "examCode", "durationMinutes", status, "totalQuestions", "createdAt", "updatedAt"
-    FROM "Exams"
+    SELECT e.id, e.title, e."subjectId", e."examCode", e."durationMinutes", e.status, e."totalQuestions", e."createdAt", e."updatedAt",
+           COALESCE(s."attemptCount", 0) as "attemptCount"
+    FROM "Exams" e
+    LEFT JOIN (
+      SELECT "examId", COUNT(id) as "attemptCount"
+      FROM "Attempts"
+      GROUP BY "examId"
+    ) s ON e.id = s."examId"
     WHERE 1=1
   `;
 
@@ -173,6 +179,27 @@ export const getExamWithDetails = async (id: string, options: GetExamDetailsOpti
     });
   }
 
+  // Get stats
+  const stats = await queryOne(
+    `
+    SELECT 
+      COUNT(id) as "attemptCount", 
+      AVG(score) as "averageScore" 
+    FROM "Attempts" 
+    WHERE "examId" = $1
+    `,
+    [id]
+  );
+
+  const attemptCount = parseInt(stats?.attemptCount || '0');
+  const averageScore = parseFloat(stats?.averageScore || '0');
+  
+  let difficulty = 'Trung bình';
+  if (attemptCount > 0) {
+    if (averageScore < 5) difficulty = 'Khó';
+    else if (averageScore > 8) difficulty = 'Dễ';
+  }
+
   const questionStructure = questions.map(q => {
     return {
       ...q,
@@ -185,6 +212,11 @@ export const getExamWithDetails = async (id: string, options: GetExamDetailsOpti
     ...exam,
     imagePages: images.map(img => img.imageUrl),
     questionStructure,
+    stats: {
+      attemptCount,
+      averageScore,
+      difficulty
+    },
     ...(options.includeAnswers ? { answerKey, explanations } : {})
   };
 };

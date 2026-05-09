@@ -11,6 +11,8 @@ import {
   Info
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { SUBJECTS } from '../mockData';
+import { cn } from '../lib/utils';
 
 export const ExamDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,7 +66,7 @@ export const ExamDetailPage: React.FC = () => {
             >
               <div className="flex items-center gap-3 mb-6">
                 <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-black uppercase tracking-wider">
-                  {exam.subjectId === 'math' ? 'Toán học' : exam.subjectId}
+                  {SUBJECTS.find(s => s.id === exam.subjectId)?.name || exam.subjectId}
                 </span>
                 <span className="text-slate-400 font-bold text-sm">Mã đề: {exam.examCode}</span>
               </div>
@@ -148,15 +150,23 @@ export const ExamDetailPage: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between text-sm">
                   <span className="opacity-60">Lượt làm bài</span>
-                  <span className="font-bold">1,240</span>
+                  <span className="font-bold">{exam.stats?.attemptCount?.toLocaleString('vi-VN') || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="opacity-60">Điểm trung bình</span>
-                  <span className="font-bold text-blue-400">7.45</span>
+                  <span className="font-bold text-blue-400">
+                    {exam.stats?.averageScore ? exam.stats.averageScore.toFixed(1) : '0.0'}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="opacity-60">Độ khó</span>
-                  <span className="font-bold text-amber-400">Trung bình</span>
+                  <span className={cn(
+                    "font-bold",
+                    exam.stats?.difficulty === 'Dễ' ? 'text-emerald-400' : 
+                    exam.stats?.difficulty === 'Khó' ? 'text-rose-400' : 'text-amber-400'
+                  )}>
+                    {exam.stats?.difficulty || 'Trung bình'}
+                  </span>
                 </div>
               </div>
             </div>

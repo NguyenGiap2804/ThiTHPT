@@ -18,6 +18,66 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatScore } from '../lib/utils';
 
+interface ExamCardProps {
+  exam: any;
+  delay?: number;
+}
+
+const ExamCard: React.FC<ExamCardProps> = ({ exam, delay = 0 }) => {
+  // LOGIC: Việt hóa tên môn học
+  const subjectName = useMemo(() => {
+    return SUBJECTS.find(s => s.id === exam.subjectId)?.name || exam.subjectId;
+  }, [exam.subjectId]);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ delay }}
+    >
+      <Link 
+        to={`/exam/${exam.id}`}
+        className="group block bg-white rounded-2xl p-5 border border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all relative h-full"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[9px] font-black uppercase tracking-wider">
+            {subjectName}
+          </span>
+          {exam.isFeatured && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+        </div>
+
+        <h3 className="text-sm font-black text-slate-800 mb-4 group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[2.5rem]">
+          {exam.title}
+        </h3>
+
+        <div className="flex items-center justify-between mt-auto text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3 text-blue-400" />
+              {exam.durationMinutes}p
+            </span>
+            <span className="flex items-center gap-1">
+              <FileText className="w-3 h-3 text-indigo-400" />
+              {exam.totalQuestions ?? 0} câu
+            </span>
+            <span className="flex items-center gap-1">
+              <Star className="w-3 h-3 text-amber-400" />
+              {exam.attemptCount || 0} lượt
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group-hover:bg-blue-700 shadow-lg shadow-blue-200/50">
+            <span>Làm bài</span>
+            <ChevronRight className="w-3 h-3" />
+          </div>
+        </div>
+      </Link>
+    </motion.div>
+  );
+};
+
 export const HomePage: React.FC = () => {
   const { exams, attempts } = useApp();
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
@@ -251,56 +311,5 @@ export const HomePage: React.FC = () => {
         </div>
       </main>
     </div>
-  );
-};
-
-const ExamCard = ({ exam, delay = 0 }: { exam: any, delay?: number }) => {
-  // LOGIC: Việt hóa tên môn học
-  const subjectName = useMemo(() => {
-    return SUBJECTS.find(s => s.id === exam.subjectId)?.name || exam.subjectId;
-  }, [exam.subjectId]);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ delay }}
-    >
-      <Link 
-        to={`/exam/${exam.id}`}
-        className="group block bg-white rounded-2xl p-5 border border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all relative h-full"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[9px] font-black uppercase tracking-wider">
-            {subjectName}
-          </span>
-          {exam.isFeatured && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-        </div>
-
-        <h3 className="text-sm font-black text-slate-800 mb-4 group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[2.5rem]">
-          {exam.title}
-        </h3>
-
-        <div className="flex items-center justify-between mt-auto text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-blue-400" />
-              {exam.durationMinutes}p
-            </span>
-            <span className="flex items-center gap-1">
-              <FileText className="w-3 h-3 text-indigo-400" />
-              {exam.totalQuestions ?? 0} câu
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group-hover:bg-blue-700 shadow-lg shadow-blue-200/50">
-            <span>Làm bài</span>
-            <ChevronRight className="w-3 h-3" />
-          </div>
-        </div>
-      </Link>
-    </motion.div>
   );
 };

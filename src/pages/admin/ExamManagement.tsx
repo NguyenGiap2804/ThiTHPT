@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../lib/utils';
+import { cn, getImageUrl } from '../../lib/utils';
 import { Exam } from '../../types';
 
 type ExamDraft = Partial<Exam> & {
@@ -750,7 +750,7 @@ export const ExamManagement: React.FC = () => {
                             <div className="absolute left-2 top-2 z-10 rounded-lg bg-slate-900/80 px-2 py-1 text-xs font-black text-white">
                               Trang {idx + 1}
                             </div>
-                            <img src={img} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            <img src={getImageUrl(img)} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 type="button"

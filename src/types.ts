@@ -40,6 +40,12 @@ export interface Exam {
   explanations?: Record<string, string>; // Admin/result-only: questionId -> explanation text
   totalQuestions?: number;
   status: 'draft' | 'published' | 'hidden';
+  attemptCount?: number;
+  stats?: {
+    attemptCount: number;
+    averageScore: number;
+    difficulty: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

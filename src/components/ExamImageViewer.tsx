@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, getImageUrl } from '../lib/utils';
 
 interface ExamImageViewerProps {
   images: string[];
@@ -26,7 +26,7 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
   useEffect(() => {
     const observerOptions = {
       root: scrollContainerRef.current,
-      threshold: 0.3, // Change active page when 30% of the page is visible
+      threshold: 0.3,
     };
 
     const observer = new IntersectionObserver((entries) => {
@@ -104,7 +104,7 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
                 )}
               >
                 <img 
-                  src={img} 
+                  src={getImageUrl(img)} 
                   alt={`Thumb ${idx + 1}`} 
                   className={cn(
                     "w-full h-full object-cover transition-opacity duration-300",
@@ -142,9 +142,9 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
                 className="shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-sm bg-white h-fit max-w-[900px] w-full"
               >
                 <img 
-                  src={img} 
+                  src={getImageUrl(img)} 
                   alt={`Exam Page ${idx + 1}`}
-                  className="w-full h-auto select-none pointer-events-none"
+                  className="w-full h-auto select-none"
                   referrerPolicy="no-referrer"
                 />
               </motion.div>

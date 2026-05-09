@@ -24,3 +24,13 @@ export function formatScore(score: any, decimals: number = 1): string {
   const num = Number(score);
   return isNaN(num) ? '0.0' : num.toFixed(decimals);
 }
+
+const BACKEND_URL = 'https://thithpt-backend.onrender.com';
+
+export function getImageUrl(path: string | undefined | null): string {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  // Ensure path starts with /
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${BACKEND_URL}${cleanPath}`;
+}
