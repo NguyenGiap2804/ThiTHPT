@@ -217,15 +217,15 @@ export const ResultPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {answer.explanation && (
-                    <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100">
-                      <div className="flex items-center gap-2 mb-3 text-blue-700 font-bold">
-                        <BookOpen className="w-5 h-5" />
-                        Lời giải chi tiết
-                      </div>
-                      <p className="text-slate-700 leading-relaxed text-sm">{answer.explanation}</p>
+                  <div className="p-5 rounded-2xl bg-blue-50 border border-blue-100">
+                    <div className="flex items-center gap-2 mb-3 text-blue-700 font-bold">
+                      <BookOpen className="w-5 h-5" />
+                      Lời giải chi tiết
                     </div>
-                  )}
+                    <p className="text-slate-700 leading-relaxed text-sm italic opacity-70">
+                      {answer.explanation ? 'Đang cập nhật tính năng' : 'Đang cập nhật tính năng'}
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             );
