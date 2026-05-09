@@ -10,25 +10,29 @@ Hệ thống đã được chuyển đổi thành công từ môi trường phá
 
 ## 2. Các Công Việc Đã Thực Hiện
 ### 🔧 Kỹ Thuật & Deployment
-- **ESM Migration:** Sửa lỗi import module cho môi trường Node.js Production bằng cách thêm hậu tố `.js` vào tất cả các đường dẫn nội bộ.
-- **Database Setup:** Cấu hình **PostgreSQL Transaction Pooler** (Cổng 6543) để tối ưu hóa kết nối từ Cloud.
-- **Environment Variables:** Thiết lập đầy đủ `JWT_SECRET`, `CORS_ORIGIN`, và chuỗi kết nối DB trên Render.
+- **ESM Migration:** Sửa lỗi import module cho môi trường Node.js Production.
+- **Database Setup:** Cấu hình **PostgreSQL Transaction Pooler** (Cổng 6543) để tối ưu hóa kết nối.
+- **Environment Variables:** Thiết lập đầy đủ các biến môi trường trên Render và Firebase.
 
-### 🛡️ Bảo Mật (Security)
-- **RLS (Row Level Security):** Kích hoạt bảo mật mức hàng cho tất cả các bảng trên Supabase.
-- **Security Advisor:** Xử lý triệt để các cảnh báo về lậu dữ liệu và cấu hình linter của Supabase.
-- **Admin Access:** Thiết lập thành công cơ chế quản trị viên mới thông qua quy trình đăng ký an toàn và nâng quyền trực tiếp từ DB.
+### 🛡️ Bảo Mật & Hệ Thống (Security & System)
+- **CORS & Assets:** Cấu hình **Helmet Cross-Origin Resource Policy** trên server để cho phép hiển thị ảnh từ backend trên frontend Firebase.
+- **PDF Processing:** Hoàn thiện tính năng tải đề PDF và tự động chuyển đổi thành ảnh trang đề (image pages) để học sinh xem trực tiếp.
+- **Admin Validation:** Cải tiến hệ thống kiểm tra dữ liệu khi tạo đề thi, liệt kê chi tiết các trường còn thiếu (Tiêu đề, Mã đề, Đáp án từng câu).
+
+### 📊 Tích Hợp Dữ Liệu Thực (Data Integration)
+- **Real-time Statistics:** Thay thế toàn bộ dữ liệu mẫu (mock) bằng dữ liệu thực từ Database:
+    - **Lượt làm bài:** Tự động đếm từ bảng `Attempts`.
+    - **Điểm trung bình:** Tính toán dựa trên kết quả làm bài của tất cả học sinh.
+    - **Độ khó:** Tự động phân loại (Dễ/Trung bình/Khó) dựa trên điểm số trung bình thực tế.
+- **Hệ thống Tìm kiếm:** Kích hoạt tính năng tìm kiếm theo tên, mã đề và lọc theo môn học trên trang chủ.
 
 ### 🎨 Giao Diện & Trải Nghiệm (UI/UX)
-- **Redesign Login Page:**
-    - Loại bỏ các thành phần thừa (Tab switcher) để tập trung vào mục tiêu chính.
-    - Thêm tiêu đề chuyên nghiệp: **"THPT.PRO - Hệ thống luyện thi thông minh"**.
-    - Cân chỉnh Logo chuẩn responsive cho mọi thiết bị.
-- **Notification System:** Tích hợp ô thông báo lỗi (Red Alert Box) nổi bật với hiệu ứng mượt mà khi người dùng nhập sai thông tin.
+- **Image Rendering Fix:** Triển khai utility `getImageUrl` để xử lý đường dẫn ảnh linh hoạt giữa môi trường dev và production.
+- **Vietnamese Localization:** Chuẩn hóa hiển thị tên môn học bằng tiếng Việt trên toàn bộ hệ thống (Toán học, Tiếng Anh, ...).
+- **Exam Session Safety:** Thêm cảnh báo xác nhận khi học sinh muốn thoát khỏi bài thi đang làm để tránh mất tiến trình.
 
 ## 3. Thông Tin Quản Trị
 - **Trang chủ:** [https://thithpt-website.web.app](https://thithpt-website.web.app)
-- **Trang quản trị:** Đăng nhập bằng tài khoản Admin đã nâng cấp để quản lý đề thi và học sinh.
 - **Backend API:** [https://thithpt-backend.onrender.com](https://thithpt-backend.onrender.com)
 
 ## 4. Hướng Dẫn Bảo Trì
@@ -38,4 +42,5 @@ Hệ thống đã được chuyển đổi thành công từ môi trường phá
 
 ---
 **Trạng thái hệ thống:** 🟢 Hoạt động ổn định (Live)
+**Cập nhật cuối:** 10/05/2026
 **Người thực hiện:** Antigravity AI & Quản trị viên
