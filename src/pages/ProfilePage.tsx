@@ -52,7 +52,7 @@ export const ProfilePage: React.FC = () => {
                 <Mail className="mt-0.5 h-5 w-5 text-slate-400" />
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-wider text-slate-400">Email</p>
-                  <p className="truncate text-sm font-bold text-slate-800">{currentUser.email}</p>
+                  <p className="break-all text-sm font-bold text-slate-800">{currentUser.email}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4">
