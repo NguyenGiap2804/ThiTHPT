@@ -48,6 +48,16 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
     return;
   }
 
+  // Verify connection configuration
+  try {
+    console.log("[Email] Verifying transporter configuration...");
+    await transporter.verify();
+    console.log("[Email] Transporter is ready to take messages.");
+  } catch (verifyError) {
+    console.error("[Email] Transporter verification failed:", verifyError);
+    return; // Don't even try to send if verification fails
+  }
+
   const safeName = escapeHtml(name);
   const safeAppUrl = escapeHtml(appUrl);
   const subject = "Chào mừng bạn đến với Nền tảng Ôn thi THPT Quốc gia ThiTHPT!";
@@ -55,7 +65,7 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
   console.log(`[Email] Attempting to send welcome email to: ${to}`);
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: mailFrom,
       to,
       subject,
@@ -107,7 +117,7 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
         </html>
       `,
     });
-    console.log(`[Email] Welcome email sent successfully to: ${to}`);
+    console.log(`[Email] Welcome email sent successfully to: ${to}. MessageId: ${info.messageId}`);
   } catch (error) {
     console.error(`[Email] Failed to send welcome email to ${to}:`, error);
     throw error;
