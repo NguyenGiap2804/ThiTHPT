@@ -11,6 +11,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ExamManagement } from './pages/admin/ExamManagement';
 import { SystemSettings } from './pages/admin/SystemSettings';
 import { UserManagement } from './pages/admin/UserManagement';
+import { LoginPage } from './pages/LoginPage';
 import { Toast } from './components/Toast';
 
 const AppRoutes = () => {

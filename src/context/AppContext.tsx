@@ -99,6 +99,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
+    const token = localStorage.getItem('thpt_token');
+    if (!token) return;
+
     attemptApi.getUserAttempts()
       .then(setAttempts)
       .catch((err) => {
