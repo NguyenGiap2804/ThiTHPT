@@ -146,20 +146,59 @@ export const ExamManagement: React.FC = () => {
   };
 
   const handleCreateExam = async () => {
-    if (!newExam.title || !newExam.examCode || !newExam.subjectId) {
-      alert('Vui lòng nhập đầy đủ các trường bắt buộc (*)');
-      return;
-    }
+    const errors: string[] = [];
 
+    // 1. Basic Info
+    if (!newExam.title?.trim()) errors.push('Tên đề thi không được để trống');
+    if (!newExam.examCode?.trim()) errors.push('Mã đề không được để trống');
+    if (!newExam.subjectId) errors.push('Chưa chọn môn học');
+
+    // 2. File/Images
     if ((newExam.imagePages || []).length === 0) {
-      alert('Vui lòng tải PDF hoặc ảnh trang đề trước khi tạo đề thi.');
-      setActiveTab('file');
-      return;
+      errors.push('Vui lòng tải PDF hoặc ảnh trang đề (Phần "File đề thi")');
     }
 
-    if ((newExam.questionStructure || []).length === 0) {
-      alert('Vui lòng tạo cấu trúc câu hỏi trước khi tạo đề thi.');
-      setActiveTab('structure');
+    // 3. Question Structure & Answers
+    const questions = newExam.questionStructure || [];
+    if (questions.length === 0) {
+      errors.push('Chưa có cấu trúc câu hỏi (Phần "Cấu trúc")');
+    } else {
+      const missingAnswers: string[] = [];
+      questions.forEach(q => {
+        const answer = newExam.answerKey?.[q.id];
+        
+        if (q.part === 1) {
+          if (!answer) missingAnswers.push(q.label);
+        } else if (q.part === 2) {
+          const subKeys = ['a', 'b', 'c', 'd'];
+          const subAnswers = (answer as any) || {};
+          const missingSub = subKeys.filter(k => subAnswers[k] === undefined || subAnswers[k] === null);
+          if (missingSub.length > 0) {
+            missingAnswers.push(`${q.label} (thiếu ý ${missingSub.join(', ')})`);
+          }
+        } else if (q.part === 3) {
+          if (!answer || String(answer).trim() === '') missingAnswers.push(q.label);
+        }
+      });
+
+      if (missingAnswers.length > 0) {
+        errors.push(`Thiếu đáp án cho các câu: ${missingAnswers.join(', ')}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      addNotification({
+        title: 'Thông tin chưa đầy đủ',
+        message: (
+          <div className="space-y-2 mt-2">
+            <p className="font-bold text-rose-600">Vui lòng hoàn thiện các mục sau:</p>
+            <ul className="list-disc list-inside text-xs space-y-1 text-slate-600">
+              {errors.map((err, i) => <li key={i}>{err}</li>)}
+            </ul>
+          </div>
+        ) as any,
+        type: 'error'
+      });
       return;
     }
 
