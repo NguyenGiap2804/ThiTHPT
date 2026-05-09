@@ -1,7 +1,7 @@
 import { query, queryOne } from "../database.js";
 
 export const getAdminStats = async () => {
-  const stats = await queryOne(`
+  const statsPromise = queryOne(`
     SELECT
       (SELECT COUNT(*) FROM "Exams") as "totalExams",
       (SELECT COUNT(*) FROM "Attempts") as "totalAttempts",
@@ -9,19 +9,13 @@ export const getAdminStats = async () => {
       (SELECT AVG(score) FROM "Attempts") as "averageScore"
   `);
 
-  let unreadNotifications = 0;
-  try {
-    const notificationStats = await queryOne(`
+  const notificationStatsPromise = queryOne(`
       SELECT COUNT(*) as "unreadNotifications"
       FROM "Notifications"
       WHERE "isRead" = FALSE
     `);
-    unreadNotifications = Number(notificationStats?.unreadNotifications ?? 0);
-  } catch (error) {
-    unreadNotifications = 0;
-  }
 
-  const recentAttempts = await query(`
+  const recentAttemptsPromise = query(`
     SELECT
       a.id,
       a.score,
@@ -34,6 +28,14 @@ export const getAdminStats = async () => {
     ORDER BY a."submittedAt" DESC
     LIMIT 5
   `);
+
+  const [stats, notificationStats, recentAttempts] = await Promise.all([
+    statsPromise,
+    notificationStatsPromise.catch(() => null),
+    recentAttemptsPromise,
+  ]);
+
+  const unreadNotifications = Number(notificationStats?.unreadNotifications ?? 0);
 
   return {
     totalExams: Number(stats?.totalExams ?? 0),

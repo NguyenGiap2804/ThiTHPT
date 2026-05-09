@@ -6,6 +6,7 @@ import {
   updateExamMetadata,
   deleteExamFull
 } from "../lib/queries/examQueries.js";
+import { createNotification } from "../lib/queries/notificationQueries.js";
 
 /**
  * Get all exams / exams with filters
@@ -97,6 +98,14 @@ export const createExam = async (req: Request, res: Response): Promise<void> => 
     }
 
     const createdExam = await getExamWithDetails(examData.id, { includeAnswers: true });
+
+    if (createdExam?.status === "published") {
+      void createNotification({
+        title: "Đề thi mới",
+        message: `${createdExam.title} đã được xuất bản.`,
+        type: "info",
+      }).catch((error) => console.warn("Create exam notification failed:", error));
+    }
 
     res.status(201).json({
       message: "Exam created successfully",

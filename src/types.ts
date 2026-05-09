@@ -5,6 +5,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type SubjectId = 'math' | 'english' | 'physics' | 'chemistry' | 'biology' | 'literature' | 'other';

@@ -13,6 +13,7 @@ import examRoutes from "./routes/exams.js";
 import attemptRoutes from "./routes/attempts.js";
 import uploadRoutes from "./routes/upload.js";
 import adminRoutes from "./routes/admin.js";
+import notificationRoutes from "./routes/notifications.js";
 import { getUploadStorageLabel } from "./lib/storage.js";
 
 const app: Express = express();
@@ -82,6 +83,7 @@ app.use("/api/exams", examRoutes);
 app.use("/api/attempts", attemptRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use((req: Request, res: Response) => {
   res.status(404).json({

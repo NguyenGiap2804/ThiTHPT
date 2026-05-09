@@ -7,6 +7,7 @@ import { ExamDetailPage } from './pages/ExamDetailPage';
 import { ExamSessionPage } from './pages/ExamSessionPage';
 import { ResultPage } from './pages/ResultPage';
 import { HistoryPage } from './pages/HistoryPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ExamManagement } from './pages/admin/ExamManagement';
 import { SystemSettings } from './pages/admin/SystemSettings';
@@ -45,6 +46,7 @@ const AppRoutes = () => {
           <Route path="/session/:id" element={<ExamSessionPage />} />
           <Route path="/result/:id" element={<ResultPage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           
           {/* Admin Routes */}
           {isAdmin ? (

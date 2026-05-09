@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import {
-  createAttempt,
-  saveAttemptAnswer,
   calculateAttemptScore,
+  createAttemptWithAnswers,
   getAttemptWithDetails,
   getUserAttempts as getUserAttemptsFromDb,
 } from "../lib/queries/attemptQueries.js";
+import { createNotification } from "../lib/queries/notificationQueries.js";
 
 /**
  * Submit exam attempt
@@ -51,18 +51,21 @@ export const submitAttempt = async (
     // Calculate score based on correct answers
     const scoringResult = await calculateAttemptScore(answers, examId);
 
-    // Create attempt in database
     const attemptId = uuidv4();
-    const attempt = await createAttempt(
-      attemptId,
+    const attempt = await createAttemptWithAnswers({
+      id: attemptId,
       examId,
       userId,
-      scoringResult.score,
-      scoringResult.correctCount,
-      scoringResult.wrongCount,
-      scoringResult.emptyCount,
-      Number(timeSpent) || 0
-    );
+      score: scoringResult.score,
+      correctCount: scoringResult.correctCount,
+      wrongCount: scoringResult.wrongCount,
+      emptyCount: scoringResult.emptyCount,
+      timeSpent: Number(timeSpent) || 0,
+      details: scoringResult.details.map((answer) => ({
+        ...answer,
+        id: uuidv4(),
+      })),
+    });
 
     if (!attempt) {
       res.status(500).json({
@@ -72,18 +75,16 @@ export const submitAttempt = async (
       return;
     }
 
-    // Save individual answers in parallel for better performance
-    await Promise.all(
-      scoringResult.details.map((answer) =>
-        saveAttemptAnswer(uuidv4(), attemptId, answer)
-      )
-    );
-
-    const savedAttempt = await getAttemptWithDetails(attemptId);
+    void createNotification({
+      userId,
+      title: "Đã nộp bài",
+      message: `Bài thi ${attempt.examTitle} đã được chấm: ${attempt.score}/10 điểm.`,
+      type: "success",
+    }).catch((error) => console.warn("Create attempt notification failed:", error));
 
     res.status(201).json({
       message: "Exam attempted successfully",
-      data: savedAttempt || attempt,
+      data: attempt,
     });
   } catch (error) {
     console.error("Submit attempt error:", error);

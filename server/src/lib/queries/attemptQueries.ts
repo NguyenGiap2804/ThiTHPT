@@ -1,4 +1,4 @@
-import { query, queryOne } from "../database.js";
+import { query, queryOne, transaction } from "../database.js";
 
 export type SubmittedAttemptAnswer = {
   questionId: string;
@@ -68,6 +68,95 @@ export const createAttempt = async (
   ]);
 
   return result ? findAttemptById(id) : null;
+};
+
+export const createAttemptWithAnswers = async ({
+  id,
+  examId,
+  userId,
+  score,
+  correctCount,
+  wrongCount,
+  emptyCount,
+  timeSpent,
+  details,
+}: {
+  id: string;
+  examId: string;
+  userId: string;
+  score: number;
+  correctCount: number;
+  wrongCount: number;
+  emptyCount: number;
+  timeSpent: number;
+  details: Array<ScoredAttemptAnswer & { id: string }>;
+}) => {
+  return transaction(async (client) => {
+    await client.query(
+      `
+      INSERT INTO "Attempts" (
+        id, "examId", "studentId", score, "correctCount", "wrongCount", "emptyCount", "timeSpent", "submittedAt"
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      `,
+      [id, examId, userId, score, correctCount, wrongCount, emptyCount, timeSpent]
+    );
+
+    if (details.length > 0) {
+      const values: string[] = [];
+      const params: any[] = [];
+
+      details.forEach((answer, index) => {
+        const offset = index * 8;
+        values.push(
+          `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, NOW())`
+        );
+        params.push(
+          answer.id,
+          id,
+          answer.questionId,
+          answer.selectedOption ?? null,
+          answer.trueFalseAnswers ? JSON.stringify(answer.trueFalseAnswers) : null,
+          answer.shortAnswer ?? null,
+          answer.isCorrect,
+          answer.points
+        );
+      });
+
+      await client.query(
+        `
+        INSERT INTO "AttemptAnswers" (
+          id, "attemptId", "questionId", "selectedOption", "trueFalseAnswers", "shortAnswer", "isCorrect", points, "createdAt"
+        )
+        VALUES ${values.join(", ")}
+        `,
+        params
+      );
+    }
+
+    const result = await client.query(
+      `
+      SELECT
+        a.id,
+        a."examId",
+        a."studentId" as "userId",
+        e."subjectId",
+        e.title as "examTitle",
+        a.score,
+        a."correctCount",
+        a."wrongCount",
+        a."emptyCount",
+        a."timeSpent",
+        a."submittedAt" as "date"
+      FROM "Attempts" a
+      JOIN "Exams" e ON a."examId" = e.id
+      WHERE a.id = $1
+      `,
+      [id]
+    );
+
+    return result.rows[0] ?? null;
+  });
 };
 
 /**

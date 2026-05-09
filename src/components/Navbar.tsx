@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, FileText, History, LayoutDashboard, Home, Bell, User, LogOut, ChevronDown, ShieldCheck, Settings, Users } from 'lucide-react';
+import { FileText, History, LayoutDashboard, Home, Bell, User, LogOut, ChevronDown, ShieldCheck, Settings, Users, CheckCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,8 +8,9 @@ import logIcon from '../assets/logoIcon.jpg';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
-  const { notifications, currentUser, logout } = useApp();
+  const { notifications, currentUser, logout, markNotificationRead, markAllNotificationsRead } = useApp();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   
   if (!currentUser) return null;
 
@@ -66,12 +67,75 @@ export const Navbar: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-3">
-              <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all relative group">
-                <Bell className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
-                )}
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(prev => !prev)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all relative group"
+                  aria-label="Thông báo"
+                >
+                  <Bell className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {showNotifications && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-100 bg-white p-2 shadow-2xl z-50"
+                      >
+                        <div className="flex items-center justify-between px-3 py-2">
+                          <div>
+                            <p className="text-sm font-black text-slate-900">Thông báo</p>
+                            <p className="text-xs font-bold text-slate-400">{unreadCount} chưa đọc</p>
+                          </div>
+                          <button
+                            onClick={markAllNotificationsRead}
+                            className="rounded-lg p-2 text-slate-400 hover:bg-slate-50 hover:text-blue-600"
+                            title="Đánh dấu tất cả đã đọc"
+                          >
+                            <CheckCheck className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                          {notifications.length === 0 ? (
+                            <div className="px-4 py-8 text-center text-sm font-bold text-slate-400">
+                              Chưa có thông báo.
+                            </div>
+                          ) : (
+                            notifications.slice(0, 10).map((notification) => (
+                              <button
+                                key={notification.id}
+                                onClick={() => markNotificationRead(notification.id)}
+                                className="w-full rounded-xl px-3 py-3 text-left transition hover:bg-slate-50"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <span className={cn(
+                                    "mt-1 h-2.5 w-2.5 rounded-full",
+                                    notification.read ? "bg-slate-200" : "bg-blue-600"
+                                  )} />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-black text-slate-900">{notification.title}</p>
+                                    <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">{notification.message}</p>
+                                    <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                                      {new Date(notification.timestamp).toLocaleString('vi-VN')}
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
 
               <div className="w-px h-6 bg-slate-100 mx-1" />
 
@@ -108,10 +172,14 @@ export const Navbar: React.FC = () => {
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Tài khoản</p>
                           <p className="text-sm font-black text-slate-900 truncate">{currentUser.email}</p>
                         </div>
-                        <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all font-bold text-sm">
+                        <Link
+                          to="/profile"
+                          onClick={() => setShowUserMenu(false)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all font-bold text-sm"
+                        >
                           <User className="w-4 h-4" />
                           Trang cá nhân
-                        </button>
+                        </Link>
                         <button 
                           onClick={() => {
                             logout();
@@ -148,10 +216,16 @@ export const Navbar: React.FC = () => {
               <span className="text-[10px] font-black uppercase tracking-wider">{item.label}</span>
             </Link>
           ))}
-          <button className="flex flex-col items-center gap-1 p-2 text-slate-400">
+          <Link
+            to="/profile"
+            className={cn(
+              "flex flex-col items-center gap-1 p-2 transition-all",
+              location.pathname === '/profile' ? "text-blue-600" : "text-slate-400"
+            )}
+          >
             <User className="w-6 h-6" />
             <span className="text-[10px] font-black uppercase tracking-wider">Cá nhân</span>
-          </button>
+          </Link>
         </div>
       )}
     </>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Attempt, Subject, Exam, Notification, User } from '../types';
-import { SUBJECTS, NOTIFICATIONS } from '../mockData';
-import { examApi, authApi, attemptApi } from '../lib/api';
+import { SUBJECTS } from '../mockData';
+import { examApi, authApi, attemptApi, notificationApi } from '../lib/api';
 
 interface AppContextType {
   subjects: Subject[];
@@ -17,6 +17,7 @@ interface AppContextType {
   updateExam: (exam: Exam) => Promise<void>;
   deleteExam: (id: string) => Promise<void>;
   markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
   fetchExamById: (id: string) => Promise<Exam | null>;
   fetchAttemptById: (id: string) => Promise<Attempt | null>;
@@ -38,29 +39,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<User | null>(readStoredUser);
   const [exams, setExams] = useState<Exam[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    try {
-      const saved = localStorage.getItem('thpt_notifications');
-      const parsed = saved ? JSON.parse(saved) : null;
-      return Array.isArray(parsed) ? parsed : NOTIFICATIONS;
-    } catch {
-      return NOTIFICATIONS;
-    }
-  });
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const addNotification = (notif: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotif: Notification = {
       ...notif,
-      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       timestamp: new Date().toISOString(),
       read: false,
     };
     setNotifications(prev => [newNotif, ...prev]);
   };
-
-  useEffect(() => {
-    localStorage.setItem('thpt_notifications', JSON.stringify(notifications));
-  }, [notifications]);
 
   useEffect(() => {
     if (currentUser) {
@@ -96,6 +85,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!currentUser) {
       setAttempts([]);
+      setNotifications([]);
       return;
     }
 
@@ -107,6 +97,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .catch((err) => {
         console.error('Failed to fetch attempts', err);
         setAttempts([]);
+      });
+
+    notificationApi.getAll()
+      .then(setNotifications)
+      .catch((err) => {
+        console.error('Failed to fetch notifications', err);
+        setNotifications([]);
       });
   }, [currentUser]);
 
@@ -153,6 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     setCurrentUser(null);
     setAttempts([]);
+    setNotifications([]);
     localStorage.removeItem('thpt_token');
   };
 
@@ -222,6 +220,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const markNotificationRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    if (!id.startsWith('local-')) {
+      notificationApi.markRead(id).catch((err) => {
+        console.error('Failed to mark notification read', err);
+      });
+    }
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    notificationApi.markAllRead().catch((err) => {
+      console.error('Failed to mark all notifications read', err);
+    });
   };
 
   return (
@@ -239,6 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateExam,
       deleteExam,
       markNotificationRead,
+      markAllNotificationsRead,
       addNotification,
       fetchExamById,
       fetchAttemptById,

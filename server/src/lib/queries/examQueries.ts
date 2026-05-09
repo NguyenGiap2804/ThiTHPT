@@ -144,43 +144,27 @@ export const getExamWithDetails = async (id: string, options: GetExamDetailsOpti
   const exam = await queryOne(examText, [id]);
   if (!exam) return null;
 
-  // Get images
-  const images = await query(
+  const imagesPromise = query(
     `SELECT "imageUrl" FROM "ExamImages" WHERE "examId" = $1 ORDER BY "pageNumber"`,
     [id]
   );
 
-  // Get questions
-  const questions = await query(
+  const questionsPromise = query(
     `SELECT id, "questionNumber", type, label, part, options, "subQuestions" FROM "QuestionStructures" WHERE "examId" = $1 ORDER BY part, "questionNumber", label`,
     [id]
   );
 
-  const answerKey: Record<string, any> = {};
-  const explanations: Record<string, string> = {};
-
-  if (options.includeAnswers) {
-    const keys = await query(
+  const keysPromise = options.includeAnswers ? query(
       `SELECT "questionId", "correctAnswer" FROM "AnswerKeys" WHERE "examId" = $1`,
       [id]
-    );
+    ) : Promise.resolve([]);
 
-    const expls = await query(
+  const explsPromise = options.includeAnswers ? query(
       `SELECT "questionId", text FROM "Explanations" WHERE "examId" = $1`,
       [id]
-    );
+    ) : Promise.resolve([]);
 
-    keys.forEach(k => {
-      answerKey[k.questionId] = k.correctAnswer; // pg handles JSONB automatically
-    });
-
-    expls.forEach(e => {
-      explanations[e.questionId] = e.text;
-    });
-  }
-
-  // Get stats
-  const stats = await queryOne(
+  const statsPromise = queryOne(
     `
     SELECT 
       COUNT(id) as "attemptCount", 
@@ -190,6 +174,27 @@ export const getExamWithDetails = async (id: string, options: GetExamDetailsOpti
     `,
     [id]
   );
+
+  const [images, questions, keys, expls, stats] = await Promise.all([
+    imagesPromise,
+    questionsPromise,
+    keysPromise,
+    explsPromise,
+    statsPromise,
+  ]);
+
+  const answerKey: Record<string, any> = {};
+  const explanations: Record<string, string> = {};
+
+  if (options.includeAnswers) {
+    keys.forEach(k => {
+      answerKey[k.questionId] = k.correctAnswer; // pg handles JSONB automatically
+    });
+
+    expls.forEach(e => {
+      explanations[e.questionId] = e.text;
+    });
+  }
 
   const attemptCount = parseInt(stats?.attemptCount || '0');
   const averageScore = parseFloat(stats?.averageScore || '0');
@@ -225,35 +230,152 @@ export const getExamWithDetails = async (id: string, options: GetExamDetailsOpti
  * Query: Update exam metadata safely.
  */
 export const updateExamMetadata = async (id: string, updates: any) => {
-  const setClause: string[] = [];
-  const params: any[] = [];
-  let paramCount = 1;
+  await transaction(async (client) => {
+    const setClause: string[] = [];
+    const params: any[] = [];
+    let paramCount = 1;
 
-  const allowedFields = ["subjectId", "title", "examCode", "durationMinutes", "status"];
-  
-  for (const field of allowedFields) {
-    if (updates[field] !== undefined) {
-      setClause.push(`"${field}" = $${paramCount++}`);
-      params.push(updates[field]);
+    const allowedFields = ["subjectId", "title", "examCode", "durationMinutes", "status"];
+
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        setClause.push(`"${field}" = $${paramCount++}`);
+        params.push(updates[field]);
+      }
     }
-  }
 
-  if (setClause.length === 0) {
-    return getExamWithDetails(id, { includeAnswers: true });
-  }
+    if (Array.isArray(updates.questionStructure)) {
+      setClause.push(`"totalQuestions" = $${paramCount++}`);
+      params.push(updates.questionStructure.length);
+    }
 
-  setClause.push(`"updatedAt" = NOW()`);
-  params.push(id);
-  const idParamIndex = paramCount;
+    if (setClause.length > 0) {
+      setClause.push(`"updatedAt" = NOW()`);
+      params.push(id);
+      const idParamIndex = paramCount;
 
-  await query(
-    `
-    UPDATE "Exams"
-    SET ${setClause.join(", ")}
-    WHERE id = $${idParamIndex}
-  `,
-    params
-  );
+      await client.query(
+        `
+        UPDATE "Exams"
+        SET ${setClause.join(", ")}
+        WHERE id = $${idParamIndex}
+        `,
+        params
+      );
+    }
+
+    if (Array.isArray(updates.imagePages)) {
+      await client.query(`DELETE FROM "ExamImages" WHERE "examId" = $1`, [id]);
+      for (let i = 0; i < updates.imagePages.length; i++) {
+        await client.query(
+          `
+          INSERT INTO "ExamImages" (id, "examId", "pageNumber", "imageUrl", "uploadedAt")
+          VALUES ($1, $2, $3, $4, NOW())
+          `,
+          [`img-${Date.now()}-${i}`, id, i + 1, updates.imagePages[i]]
+        );
+      }
+    }
+
+    if (Array.isArray(updates.questionStructure)) {
+      const attemptCountResult = await client.query(
+        `SELECT COUNT(*) as count FROM "Attempts" WHERE "examId" = $1`,
+        [id]
+      );
+      const attemptCount = Number(attemptCountResult.rows[0]?.count ?? 0);
+      const existingResult = await client.query(
+        `SELECT id FROM "QuestionStructures" WHERE "examId" = $1 ORDER BY "questionNumber"`,
+        [id]
+      );
+      const existingIds = existingResult.rows.map((row) => row.id);
+      const nextIds = updates.questionStructure.map((q: any, index: number) => q.id || `${id}-q${index + 1}`);
+
+      if (
+        attemptCount > 0 &&
+        (existingIds.length !== nextIds.length || existingIds.some((item, index) => item !== nextIds[index]))
+      ) {
+        throw new Error("Không thể thay đổi số lượng hoặc ID câu hỏi sau khi đề đã có lượt làm bài. Chỉ nên sửa đáp án, lời giải, file ảnh và metadata.");
+      }
+
+      if (attemptCount === 0) {
+        await client.query(`DELETE FROM "AnswerKeys" WHERE "examId" = $1`, [id]);
+        await client.query(`DELETE FROM "Explanations" WHERE "examId" = $1`, [id]);
+        await client.query(`DELETE FROM "QuestionStructures" WHERE "examId" = $1`, [id]);
+
+        for (const [index, q] of updates.questionStructure.entries()) {
+          const questionId = q.id || `${id}-q${index + 1}`;
+          await client.query(
+            `
+            INSERT INTO "QuestionStructures" (id, "examId", "questionNumber", label, type, part, options, "subQuestions", "createdAt")
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            `,
+            [
+              questionId,
+              id,
+              q.questionNumber || index + 1,
+              q.label || `Câu ${index + 1}`,
+              q.type,
+              q.part,
+              JSON.stringify(q.options || []),
+              JSON.stringify(q.subQuestions || []),
+            ]
+          );
+        }
+      } else {
+        for (const [index, q] of updates.questionStructure.entries()) {
+          await client.query(
+            `
+            UPDATE "QuestionStructures"
+            SET "questionNumber" = $1, label = $2, type = $3, part = $4, options = $5, "subQuestions" = $6
+            WHERE id = $7 AND "examId" = $8
+            `,
+            [
+              q.questionNumber || index + 1,
+              q.label || `Câu ${index + 1}`,
+              q.type,
+              q.part,
+              JSON.stringify(q.options || []),
+              JSON.stringify(q.subQuestions || []),
+              q.id,
+              id,
+            ]
+          );
+        }
+      }
+    }
+
+    if (updates.answerKey && typeof updates.answerKey === "object") {
+      await client.query(`DELETE FROM "AnswerKeys" WHERE "examId" = $1`, [id]);
+      for (const [questionId, correctAnswer] of Object.entries(updates.answerKey)) {
+        if (correctAnswer === undefined || correctAnswer === null || correctAnswer === "") continue;
+        await client.query(
+          `
+          INSERT INTO "AnswerKeys" (id, "examId", "questionId", "correctAnswer", "createdAt", "updatedAt")
+          VALUES ($1, $2, $3, $4, NOW(), NOW())
+          ON CONFLICT ("questionId")
+          DO UPDATE SET "correctAnswer" = EXCLUDED."correctAnswer", "updatedAt" = NOW()
+          `,
+          [`ak-${questionId}`, id, questionId, JSON.stringify(correctAnswer)]
+        );
+      }
+    }
+
+    if (updates.explanations && typeof updates.explanations === "object") {
+      await client.query(`DELETE FROM "Explanations" WHERE "examId" = $1`, [id]);
+      for (const [questionId, explanation] of Object.entries(updates.explanations)) {
+        if (!String(explanation ?? "").trim()) continue;
+        await client.query(
+          `
+          INSERT INTO "Explanations" (id, "examId", "questionId", text, "createdAt", "updatedAt")
+          VALUES ($1, $2, $3, $4, NOW(), NOW())
+          ON CONFLICT ("questionId")
+          DO UPDATE SET text = EXCLUDED.text, "updatedAt" = NOW()
+          `,
+          [`exp-${questionId}`, id, questionId, String(explanation)]
+        );
+      }
+    }
+  });
 
   return getExamWithDetails(id, { includeAnswers: true });
 };

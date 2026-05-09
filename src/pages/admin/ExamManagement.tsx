@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useApp } from '../../context/AppContext';
-import { uploadApi } from '../../lib/api';
+import { examApi, uploadApi } from '../../lib/api';
 import { 
   ArrowDown,
   ArrowUp,
@@ -77,9 +77,12 @@ export const ExamManagement: React.FC = () => {
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
-  const [editForm, setEditForm] = useState<Partial<Exam>>({});
+  const [editForm, setEditForm] = useState<ExamDraft>({});
   const [activeTab, setActiveTab] = useState<'info' | 'file' | 'structure' | 'answers'>('info');
+  const [editTab, setEditTab] = useState<'info' | 'file' | 'structure' | 'answers'>('info');
   const [structureCounts, setStructureCounts] = useState({ part1: 12, part2: 4, part3: 6 });
+  const [editStructureCounts, setEditStructureCounts] = useState({ part1: 12, part2: 4, part3: 6 });
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   
   // Form State
   const [newExam, setNewExam] = useState<ExamDraft>({
@@ -98,6 +101,8 @@ export const ExamManagement: React.FC = () => {
   const [uploadStatus, setUploadStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
 
   const filteredExams = (exams || []).filter(e => 
     (
@@ -113,15 +118,83 @@ export const ExamManagement: React.FC = () => {
     }
   };
 
-  const startEditExam = (exam: Exam) => {
+  const countStructureParts = (questions: Exam['questionStructure'] = []) => ({
+    part1: questions.filter(q => q.part === 1).length,
+    part2: questions.filter(q => q.part === 2).length,
+    part3: questions.filter(q => q.part === 3).length,
+  });
+
+  const buildQuestionStructure = (
+    counts: typeof structureCounts,
+    examId?: string,
+    existing: Exam['questionStructure'] = []
+  ) => {
+    const structure: any[] = [];
+    let qIdx = 1;
+
+    const pushQuestion = (type: NonNullable<Exam['questionStructure']>[number]['type'], part: number, extra: Record<string, unknown> = {}) => {
+      const existingQuestion = existing.find(q => q.part === part && q.label === `Câu ${qIdx}`) || existing[qIdx - 1];
+      structure.push({
+        id: existingQuestion?.id || (examId ? `${examId}-q${qIdx}` : `q${qIdx}`),
+        questionNumber: qIdx,
+        type,
+        label: `Câu ${qIdx}`,
+        part,
+        ...extra,
+      });
+      qIdx += 1;
+    };
+
+    for (let i = 0; i < counts.part1; i++) {
+      pushQuestion('single_choice', 1, { options: ['A', 'B', 'C', 'D'] });
+    }
+    for (let i = 0; i < counts.part2; i++) {
+      pushQuestion('true_false', 2, { subQuestions: ['a', 'b', 'c', 'd'] });
+    }
+    for (let i = 0; i < counts.part3; i++) {
+      pushQuestion('short_answer', 3);
+    }
+
+    return structure;
+  };
+
+  const startEditExam = async (exam: Exam) => {
     setEditingExam(exam);
+    setEditTab('info');
     setEditForm({
       title: exam.title,
       examCode: exam.examCode,
       subjectId: exam.subjectId,
       durationMinutes: exam.durationMinutes,
       status: exam.status,
+      imagePages: exam.imagePages || [],
+      questionStructure: exam.questionStructure || [],
+      answerKey: exam.answerKey || {},
+      explanations: exam.explanations || {},
     });
+    setEditStructureCounts(countStructureParts(exam.questionStructure || []));
+    setIsLoadingEdit(true);
+    try {
+      const fullExam = await examApi.getAdminById(exam.id);
+      setEditingExam(fullExam);
+      setEditForm({
+        ...fullExam,
+        imagePages: fullExam.imagePages || [],
+        questionStructure: fullExam.questionStructure || [],
+        answerKey: fullExam.answerKey || {},
+        explanations: fullExam.explanations || {},
+      });
+      setEditStructureCounts(countStructureParts(fullExam.questionStructure || []));
+    } catch (err) {
+      console.error('Failed to load exam for editing', err);
+      addNotification({
+        title: 'Lỗi',
+        message: 'Không thể tải đầy đủ dữ liệu đề thi để sửa.',
+        type: 'error',
+      });
+    } finally {
+      setIsLoadingEdit(false);
+    }
   };
 
   const handleUpdateExam = async () => {
@@ -132,7 +205,7 @@ export const ExamManagement: React.FC = () => {
         ...editingExam,
         ...editForm,
         durationMinutes: Number(editForm.durationMinutes || editingExam.durationMinutes),
-      });
+      } as Exam);
       setEditingExam(null);
       setEditForm({});
     } catch (err) {
@@ -321,7 +394,80 @@ export const ExamManagement: React.FC = () => {
     }
   };
 
+  const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadStatus('Đang tải PDF gốc...');
+    try {
+      const pdfUpload = await uploadApi.file(file);
+      setUploadStatus('Đang chuyển PDF thành ảnh trang đề...');
+      const pageFiles = await renderPdfToImageFiles(file, (page, total) => {
+        setUploadStatus(`Đang đọc trang ${page}/${total}...`);
+      });
+
+      setUploadStatus(`Đang tải ${pageFiles.length} ảnh trang đề...`);
+      const uploadedPages = await Promise.all(pageFiles.map(pageFile => uploadApi.file(pageFile)));
+
+      setEditForm(prev => ({
+        ...prev,
+        pdfUrl: pdfUpload.url,
+        imagePages: uploadedPages.map(page => page.url),
+      }));
+      addNotification({
+        title: 'Thành công',
+        message: `Đã thay file đề và tạo ${uploadedPages.length} ảnh trang đề.`,
+        type: 'success'
+      });
+    } catch (err) {
+      console.error('Edit PDF upload/render failed', err);
+      addNotification({
+        title: 'Lỗi',
+        message: 'Không thể xử lý PDF mới.',
+        type: 'error'
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadStatus('');
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
+    }
+  };
+
+  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    setUploadStatus(`Đang tải ${files.length} ảnh trang đề...`);
+    try {
+      const imageFiles = Array.from(files) as File[];
+      const uploadedPages = await Promise.all(imageFiles.map(file => uploadApi.file(file)));
+      setEditForm(prev => ({
+        ...prev,
+        imagePages: [...(prev.imagePages || []), ...uploadedPages.map(page => page.url)]
+      }));
+      addNotification({
+        title: 'Thành công',
+        message: `Đã thêm ${uploadedPages.length} ảnh trang đề.`,
+        type: 'success'
+      });
+    } catch (err) {
+      addNotification({
+        title: 'Lỗi',
+        message: 'Không thể tải lên một số ảnh.',
+        type: 'error'
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadStatus('');
+      if (editImageInputRef.current) editImageInputRef.current.value = '';
+    }
+  };
+
   const generateStructure = (part1: number, part2: number, part3: number) => {
+    setNewExam(prev => ({ ...prev, questionStructure: buildQuestionStructure({ part1, part2, part3 }) }));
+    return;
     const structure: any[] = [];
     let qIdx = 1;
 
@@ -378,12 +524,36 @@ export const ExamManagement: React.FC = () => {
     generateStructure(nextCounts.part1, nextCounts.part2, nextCounts.part3);
   };
 
+  const updateEditStructureCount = (key: keyof typeof editStructureCounts, value: number) => {
+    const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+    const nextCounts = { ...editStructureCounts, [key]: safeValue };
+    setEditStructureCounts(nextCounts);
+    setEditForm(prev => ({
+      ...prev,
+      questionStructure: buildQuestionStructure(nextCounts, editingExam?.id, prev.questionStructure || []),
+    }));
+  };
+
   const removePage = (index: number) => {
     setNewExam(prev => ({ ...prev, imagePages: prev.imagePages?.filter((_, i) => i !== index) || [] }));
   };
 
+  const removeEditPage = (index: number) => {
+    setEditForm(prev => ({ ...prev, imagePages: prev.imagePages?.filter((_, i) => i !== index) || [] }));
+  };
+
   const movePage = (index: number, direction: -1 | 1) => {
     setNewExam(prev => {
+      const pages = [...(prev.imagePages || [])];
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= pages.length) return prev;
+      [pages[index], pages[nextIndex]] = [pages[nextIndex], pages[index]];
+      return { ...prev, imagePages: pages };
+    });
+  };
+
+  const moveEditPage = (index: number, direction: -1 | 1) => {
+    setEditForm(prev => {
       const pages = [...(prev.imagePages || [])];
       const nextIndex = index + direction;
       if (nextIndex < 0 || nextIndex >= pages.length) return prev;
@@ -1008,15 +1178,39 @@ export const ExamManagement: React.FC = () => {
               initial={{ scale: 0.95, opacity: 0, y: 12 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 12 }}
-              className="relative bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden"
+              className="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto"
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sửa thông tin đề thi</h2>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sửa đầy đủ đề thi</h2>
                 <button onClick={() => setEditingExam(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
                   <X className="w-6 h-6 text-slate-400" />
                 </button>
               </div>
+              <div className="flex gap-2 border-b border-slate-100 px-6 py-3">
+                {[
+                  { id: 'info', label: 'Thông tin' },
+                  { id: 'file', label: 'File đề' },
+                  { id: 'structure', label: 'Cấu trúc' },
+                  { id: 'answers', label: 'Đáp án' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setEditTab(tab.id as typeof editTab)}
+                    className={cn(
+                      "rounded-xl px-4 py-2 text-sm font-black transition-all",
+                      editTab === tab.id ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
               <div className="p-6 space-y-5">
+                {isLoadingEdit && (
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+                    Đang tải dữ liệu đầy đủ của đề thi...
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1">Tên đề thi</label>
                   <input
@@ -1077,6 +1271,178 @@ export const ExamManagement: React.FC = () => {
                     </select>
                   </div>
                 </div>
+                {editTab === 'file' && (
+                  <div className="space-y-6 border-t border-slate-100 pt-6">
+                    <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                      <label className="mb-4 block text-xs font-black uppercase tracking-wider text-slate-400">Thay PDF đề thi</label>
+                      <div className="flex flex-col gap-3 md:flex-row">
+                        <input
+                          type="text"
+                          placeholder="URL file PDF..."
+                          value={editForm.pdfUrl || ''}
+                          onChange={e => setEditForm(prev => ({ ...prev, pdfUrl: e.target.value }))}
+                          className="flex-1 rounded-xl bg-white px-4 py-3 font-medium outline-none"
+                        />
+                        <input type="file" ref={editFileInputRef} className="hidden" accept=".pdf" onChange={handleEditFileUpload} />
+                        <button
+                          onClick={() => editFileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Tải PDF mới
+                        </button>
+                      </div>
+                      {uploadStatus && <p className="mt-3 text-sm font-bold text-blue-600">{uploadStatus}</p>}
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-400">Ảnh trang đề ({editForm.imagePages?.length || 0} trang)</label>
+                        <button
+                          onClick={() => setEditForm(prev => ({ ...prev, imagePages: [] }))}
+                          className="text-sm font-black text-rose-600 hover:text-rose-700"
+                        >
+                          Xóa tất cả
+                        </button>
+                      </div>
+                      <div className="mb-4 flex flex-col gap-2 md:flex-row">
+                        <input
+                          type="text"
+                          placeholder="Dán URL ảnh rồi Enter..."
+                          className="flex-1 rounded-xl bg-white px-4 py-3 font-medium outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const url = (e.target as HTMLInputElement).value.trim();
+                              if (url) {
+                                setEditForm(prev => ({ ...prev, imagePages: [...(prev.imagePages || []), url] }));
+                                (e.target as HTMLInputElement).value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <input type="file" ref={editImageInputRef} className="hidden" accept="image/*" multiple onChange={handleEditImageUpload} />
+                        <button
+                          onClick={() => editImageInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Tải ảnh
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {editForm.imagePages?.map((img, idx) => (
+                          <div key={`${img}-${idx}`} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                            <div className="absolute left-2 top-2 z-10 rounded-lg bg-slate-900/80 px-2 py-1 text-xs font-black text-white">Trang {idx + 1}</div>
+                            <img src={getImageUrl(img)} alt={`Page ${idx + 1}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                            <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <button type="button" onClick={() => moveEditPage(idx, -1)} disabled={idx === 0} className="rounded-lg bg-white p-1 text-slate-600 disabled:opacity-40"><ArrowUp className="h-4 w-4" /></button>
+                              <button type="button" onClick={() => moveEditPage(idx, 1)} disabled={idx === (editForm.imagePages?.length || 0) - 1} className="rounded-lg bg-white p-1 text-slate-600 disabled:opacity-40"><ArrowDown className="h-4 w-4" /></button>
+                              <button type="button" onClick={() => removeEditPage(idx)} className="rounded-lg bg-rose-500 p-1 text-white"><X className="h-4 w-4" /></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {editTab === 'structure' && (
+                  <div className="grid gap-4 border-t border-slate-100 pt-6 md:grid-cols-3">
+                    {[
+                      { label: 'Phần I', key: 'part1' as const, help: 'A/B/C/D' },
+                      { label: 'Phần II', key: 'part2' as const, help: 'Đúng/Sai' },
+                      { label: 'Phần III', key: 'part3' as const, help: 'Trả lời ngắn' },
+                    ].map(part => (
+                      <div key={part.key} className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                        <p className="text-sm font-black text-slate-900">{part.label}</p>
+                        <p className="mb-3 text-xs font-bold text-slate-400">{part.help}</p>
+                        <input
+                          type="number"
+                          min={0}
+                          value={editStructureCounts[part.key]}
+                          onChange={(event) => updateEditStructureCount(part.key, Number(event.target.value))}
+                          className="w-full rounded-xl bg-white px-4 py-3 text-lg font-black text-slate-800 outline-none"
+                        />
+                      </div>
+                    ))}
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-bold text-amber-800 md:col-span-3">
+                      Nếu đề đã có lượt làm bài, hệ thống sẽ chặn thay đổi số lượng/ID câu hỏi để không làm hỏng lịch sử bài làm.
+                    </div>
+                  </div>
+                )}
+
+                {editTab === 'answers' && (
+                  <div className="space-y-5 border-t border-slate-100 pt-6">
+                    {editForm.questionStructure?.map(q => (
+                      <div key={q.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <span className="font-black text-slate-800">{q.label}</span>
+                          <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-400">{q.type}</span>
+                        </div>
+                        {q.type === 'single_choice' && (
+                          <div className="mb-3 flex gap-2">
+                            {['A', 'B', 'C', 'D'].map(opt => (
+                              <button
+                                key={opt}
+                                onClick={() => setEditForm(prev => ({ ...prev, answerKey: { ...prev.answerKey, [q.id]: opt } }))}
+                                className={cn(
+                                  "h-9 w-9 rounded-xl border-2 text-sm font-black",
+                                  editForm.answerKey?.[q.id] === opt ? "border-blue-600 bg-blue-600 text-white" : "border-slate-100 bg-white text-slate-400"
+                                )}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {q.type === 'true_false' && (
+                          <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                            {['a', 'b', 'c', 'd'].map(sub => (
+                              <div key={sub} className="rounded-xl bg-white p-2">
+                                <p className="mb-2 text-xs font-black uppercase text-slate-400">{sub}</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {[true, false].map(value => (
+                                    <button
+                                      key={String(value)}
+                                      onClick={() => setEditForm(prev => ({
+                                        ...prev,
+                                        answerKey: {
+                                          ...prev.answerKey,
+                                          [q.id]: { ...(prev.answerKey?.[q.id] || {}), [sub]: value }
+                                        }
+                                      }))}
+                                      className={cn(
+                                        "h-8 rounded-lg text-xs font-black",
+                                        editForm.answerKey?.[q.id]?.[sub] === value ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-400"
+                                      )}
+                                    >
+                                      {value ? 'Đ' : 'S'}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {q.type === 'short_answer' && (
+                          <input
+                            type="text"
+                            value={editForm.answerKey?.[q.id] || ''}
+                            onChange={event => setEditForm(prev => ({ ...prev, answerKey: { ...prev.answerKey, [q.id]: event.target.value } }))}
+                            className="mb-3 w-full rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm font-bold outline-none"
+                            placeholder="Đáp án"
+                          />
+                        )}
+                        <textarea
+                          value={editForm.explanations?.[q.id] || ''}
+                          onChange={event => setEditForm(prev => ({ ...prev, explanations: { ...prev.explanations, [q.id]: event.target.value } }))}
+                          className="min-h-20 w-full rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm font-medium outline-none"
+                          placeholder="Lời giải / ghi chú cho câu này"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
                 <button

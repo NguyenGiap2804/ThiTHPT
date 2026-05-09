@@ -175,8 +175,19 @@ export const notificationApi = {
   getAll: async (): Promise<Notification[]> => {
     return apiFetch('/notifications');
   },
+  create: async (notification: Pick<Notification, 'title' | 'message' | 'type'> & { userId?: string | null }): Promise<Notification> => {
+    return apiFetch('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(notification),
+    });
+  },
   markRead: async (id: string): Promise<void> => {
     return apiFetch(`/notifications/${id}/read`, {
+      method: 'PUT',
+    });
+  },
+  markAllRead: async (): Promise<void> => {
+    return apiFetch('/notifications/read-all', {
       method: 'PUT',
     });
   },
