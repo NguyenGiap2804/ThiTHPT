@@ -93,8 +93,8 @@ export const sendWelcomeEmail = async ({ to, name }: WelcomeEmailInput): Promise
       throw new Error(`Brevo API Error: ${JSON.stringify(errorData)}`);
     }
 
-    const data = await response.json();
-    console.log(`[Email] Welcome email sent successfully to: ${to}. MessageId: ${data.messageId}`);
+    const data = (await response.json()) as any;
+    console.log(`[Email] Welcome email sent successfully to: ${to}. MessageId: ${data.messageId || "N/A"}`);
   } catch (error) {
     console.error(`[Email] Failed to send welcome email to ${to}:`, error);
     throw error;
