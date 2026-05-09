@@ -72,14 +72,12 @@ export const submitAttempt = async (
       return;
     }
 
-    // Save individual answers
-    for (const answer of scoringResult.details) {
-      await saveAttemptAnswer(
-        uuidv4(),
-        attemptId,
-        answer
-      );
-    }
+    // Save individual answers in parallel for better performance
+    await Promise.all(
+      scoringResult.details.map((answer) =>
+        saveAttemptAnswer(uuidv4(), attemptId, answer)
+      )
+    );
 
     const savedAttempt = await getAttemptWithDetails(attemptId);
 

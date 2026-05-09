@@ -21,6 +21,7 @@ export const ExamSessionPage: React.FC = () => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [layout, setLayout] = useState<'split' | 'stacked'>('split');
 
   useEffect(() => {
@@ -116,7 +117,7 @@ export const ExamSessionPage: React.FC = () => {
       <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-4 md:gap-6 min-w-0">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => setShowExitConfirm(true)}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-semibold transition-colors group"
           >
             <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
@@ -294,6 +295,53 @@ export const ExamSessionPage: React.FC = () => {
                       Nộp bài ngay
                     </>
                   )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showExitConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowExitConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full overflow-hidden"
+            >
+              <div className="w-20 h-20 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-6">
+                <AlertTriangle className="w-10 h-10 text-rose-600" />
+              </div>
+
+              <h2 className="text-2xl font-black text-slate-900 text-center mb-4 tracking-tight">
+                Xác nhận thoát?
+              </h2>
+
+              <p className="text-sm text-slate-500 text-center mb-8 px-4 leading-relaxed font-medium">
+                Nếu thoát bây giờ, toàn bộ tiến trình làm bài của bạn sẽ bị mất và không thể khôi phục. Bạn có chắc chắn muốn rời khỏi bài thi?
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowExitConfirm(false)}
+                  className="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all active:scale-95"
+                >
+                  Quay lại
+                </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex-1 px-6 py-4 rounded-2xl font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  Đồng ý thoát
                 </button>
               </div>
             </motion.div>

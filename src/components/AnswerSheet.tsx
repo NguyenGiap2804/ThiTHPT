@@ -134,11 +134,11 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({
           Trạng thái câu hỏi
         </h3>
         
-        <div className="max-h-[180px] overflow-y-auto pr-2 mb-6 scrollbar-thin scrollbar-thumb-slate-100 scrollbar-track-transparent">
-          <div className="grid grid-cols-8 sm:grid-cols-10 gap-2">
+        <div className="max-h-[220px] overflow-y-auto pr-2 mb-6 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2.5">
             {questions.map((q, idx) => {
               const answer = answers.find(a => a.questionId === q.id);
-              const isDone = answer?.selectedOption || answer?.trueFalseAnswers || answer?.shortAnswer;
+              const isDone = !!(answer?.selectedOption || answer?.trueFalseAnswers || answer?.shortAnswer);
               const isFlagged = flaggedQuestions.includes(q.id);
               const isCurrent = currentIdx === idx;
 
@@ -151,16 +151,17 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({
                     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }}
                   className={cn(
-                    "aspect-square rounded-lg flex items-center justify-center text-xs font-bold transition-all relative border",
-                    isCurrent ? "ring-2 ring-blue-500 border-blue-500 scale-105" : "",
-                    isFlagged 
-                      ? "bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-100" 
+                    "w-full aspect-square rounded-xl flex items-center justify-center text-[11px] font-black transition-all relative border-2",
+                    isCurrent 
+                      ? "border-blue-600 bg-white text-blue-600 shadow-lg shadow-blue-100 ring-2 ring-blue-100 z-10" 
+                      : isFlagged 
+                      ? "bg-amber-500 border-amber-500 text-white shadow-sm" 
                       : isDone 
-                      ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100" 
-                      : "bg-slate-50 text-slate-500 border-slate-200 hover:border-blue-300 hover:bg-white"
+                      ? "bg-blue-600 border-blue-600 text-white shadow-sm" 
+                      : "bg-white text-slate-400 border-slate-100 hover:border-blue-200 hover:text-blue-600"
                   )}
                 >
-                  {idx + 1}
+                  <span className="relative top-[0.5px]">{idx + 1}</span>
                 </button>
               );
             })}
