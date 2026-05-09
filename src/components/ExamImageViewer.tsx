@@ -40,12 +40,16 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
     };
 
     const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const index = parseInt(entry.target.getAttribute('data-page-index') || '0');
-          setCurrentPage(index);
-        }
-      });
+      // Find the entry with the highest intersection ratio among those currently intersecting
+      const intersectingEntries = entries.filter(e => e.isIntersecting);
+      if (intersectingEntries.length > 0) {
+        // Sort by intersectionRatio descending and take the first one
+        const bestEntry = intersectingEntries.reduce((prev, current) => 
+          (prev.intersectionRatio > current.intersectionRatio) ? prev : current
+        );
+        const index = parseInt(bestEntry.target.getAttribute('data-page-index') || '0');
+        setCurrentPage(index);
+      }
     }, observerOptions);
 
     pageRefs.current.forEach((ref) => {

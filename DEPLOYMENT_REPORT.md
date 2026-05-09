@@ -11,13 +11,15 @@ Hệ thống đã được triển khai thành công trên môi trường Produc
 - **Environment Variables:** Thiết lập đầy đủ các biến môi trường trên Render và Firebase.
 - **CORS & Assets:** Cấu hình **Helmet Cross-Origin Resource Policy** trên server để cho phép hiển thị ảnh từ backend trên frontend Firebase.
 - **PDF Processing:** Hoàn thiện tính năng tải đề PDF và tự động chuyển đổi thành ảnh trang đề (image pages) để học sinh xem trực tiếp.
-- **Admin Validation:** Cải tiến hệ thống kiểm tra dữ liệu khi tạo đề thi, liệt kê chi tiết các trường còn thiếu (Tiêu đề, Mã đề, Đáp án từng câu).
+- **Import JSON (Admin):** Thay thế hộp thoại prompt mặc định bằng Giao diện Modal cao cấp, hỗ trợ dán mã JSON đáp án/lời giải một cách trực quan, có định dạng màu sắc và hướng dẫn chi tiết.
+- **Edit Exam Workflow:** Bổ sung tính năng Import JSON cho cả quy trình Sửa đề thi để đồng nhất trải nghiệm quản trị.
+- **UI/UX Consistency:** Đồng bộ hệ thống icon sử dụng `lucide-react`, loại bỏ các khai báo SVG cục bộ gây xung đột Type-Check.
 
 ## ✅ Bug Fixes (Mới nhất)
 - [x] **Hệ thống nộp bài:** Đã sửa lỗi Foreign Key Constraint khi nộp bài. Backend hiện tại ghi nhật ký chi tiết hơn để bắt lỗi nếu có.
 - [x] **Modal Quản lý:** Sửa nút "Tiếp theo" bị kẹt ở tab Đáp án. Thêm trạng thái "Đang lưu..." cho nút cập nhật đề thi.
-- [x] **Trình xem đề:** Sửa lỗi trang đề tự động nhảy xuống trang 4 khi mới bắt đầu.
-- [x] **Khắc phục lỗi ảnh:** Giải thích nguyên nhân và hướng xử lý việc mất ảnh sau khi deploy lại.
+- [x] **Trình xem đề:** Sửa lỗi nhảy trang sai lệch (ví dụ: hiển thị trang 1 nhưng UI báo trang 4). Đã tối ưu hóa IntersectionObserver để bắt chính xác trang có tỷ lệ hiển thị cao nhất.
+- [x] **Conflict Icons:** Sửa lỗi trùng tên khai báo `FileText` gây lỗi biên dịch TypeScript.
 
 ## ⚠️ Cảnh báo quan trọng: Lưu trữ ảnh
 Hiện tại, hệ thống Backend đang được deploy trên Render gói miễn phí. Render có một đặc điểm là **Bộ nhớ tạm thời (Ephemeral Storage)**.
@@ -34,4 +36,4 @@ Hiện tại, hệ thống Backend đang được deploy trên Render gói miễ
 3. **Phân quyền nâng cao:** Audit log cho hành động của Admin.
 
 ---
-*Cập nhật lần cuối: 10/05/2026*
+*Cập nhật lần cuối: 10/05/2026 (Sáng)*

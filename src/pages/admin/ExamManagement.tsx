@@ -12,6 +12,8 @@ import {
   Trash2, 
   Eye, 
   FileUp,
+  FileText,
+  FileCode,
   CheckCircle2,
   AlertCircle,
   ChevronRight,
@@ -101,6 +103,9 @@ export const ExamManagement: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
+  const [showImportJsonModal, setShowImportJsonModal] = useState(false);
+  const [importJsonValue, setImportJsonValue] = useState('');
+  const [importTarget, setImportTarget] = useState<'new' | 'edit'>('new');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
@@ -336,12 +341,17 @@ export const ExamManagement: React.FC = () => {
     }
   };
 
+  const openImportModal = (target: 'new' | 'edit') => {
+    setImportTarget(target);
+    setImportJsonValue('');
+    setShowImportJsonModal(true);
+  };
+
   const handleImportJson = () => {
-    const jsonCode = window.prompt('Dán đoạn mã JSON đáp án/lời giải vào đây:');
-    if (!jsonCode) return;
+    if (!importJsonValue.trim()) return;
 
     try {
-      const data = JSON.parse(jsonCode);
+      const data = JSON.parse(importJsonValue);
       
       let importedAnswers = {};
       let importedExplanations = {};
@@ -353,19 +363,32 @@ export const ExamManagement: React.FC = () => {
         importedAnswers = data;
       }
 
-      setNewExam(prev => ({
-        ...prev,
-        answerKey: { ...prev.answerKey, ...importedAnswers },
-        explanations: { ...prev.explanations, ...importedExplanations }
-      }));
+      if (importTarget === 'new') {
+        setNewExam(prev => ({
+          ...prev,
+          answerKey: { ...prev.answerKey, ...importedAnswers },
+          explanations: { ...prev.explanations, ...importedExplanations }
+        }));
+      } else {
+        setEditForm(prev => ({
+          ...prev,
+          answerKey: { ...prev.answerKey, ...importedAnswers },
+          explanations: { ...prev.explanations, ...importedExplanations }
+        }));
+      }
 
       addNotification({
         title: 'Thành công',
         message: 'Đã cập nhật dữ liệu từ đoạn mã JSON.',
         type: 'success'
       });
+      setShowImportJsonModal(false);
     } catch (err) {
-      alert('Mã JSON không hợp lệ. Vui lòng kiểm tra lại.');
+      addNotification({
+        title: 'Lỗi',
+        message: 'Mã JSON không hợp lệ. Vui lòng kiểm tra lại.',
+        type: 'error'
+      });
     }
   };
 
@@ -1093,10 +1116,10 @@ export const ExamManagement: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">Nhập đáp án</h3>
                       <button 
-                        onClick={handleImportJson}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                        onClick={() => openImportModal('new')}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors"
                       >
-                        <FileUp className="w-4 h-4" />
+                        <FileCode className="w-4 h-4" />
                         Import JSON
                       </button>
                     </div>
@@ -1486,6 +1509,16 @@ export const ExamManagement: React.FC = () => {
 
                 {editTab === 'answers' && (
                   <div className="space-y-5 border-t border-slate-100 pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Cập nhật đáp án</h3>
+                      <button 
+                        onClick={() => openImportModal('edit')}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors"
+                      >
+                        <FileCode className="w-4 h-4" />
+                        Import JSON
+                      </button>
+                    </div>
                     {editForm.questionStructure?.map(q => (
                       <div key={q.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                         <div className="mb-3 flex items-center justify-between gap-3">
@@ -1596,10 +1629,95 @@ export const ExamManagement: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+      
+      {/* Import JSON Modal */}
+      <AnimatePresence>
+        {showImportJsonModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowImportJsonModal(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100"
+            >
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                    <FileCode className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Import Đáp án từ JSON</h2>
+                    <p className="text-sm font-medium text-slate-500">Dán mã JSON cấu trúc đáp án và lời giải vào đây</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowImportJsonModal(false)} 
+                  className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm"
+                >
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Mã JSON</label>
+                  <div className="relative group">
+                    <textarea 
+                      value={importJsonValue}
+                      onChange={e => setImportJsonValue(e.target.value)}
+                      placeholder='{ "answers": { "q1": "A", "q2": { "a": true, "b": false... } } }'
+                      className="w-full h-64 p-6 bg-slate-900 text-blue-100 font-mono text-sm rounded-3xl border-none focus:ring-4 focus:ring-blue-500/20 transition-all outline-none resize-none"
+                    />
+                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black text-white/50 uppercase">JSON Format</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100/50">
+                    <p className="text-[10px] font-black text-blue-900 uppercase tracking-wider mb-1">Mẹo</p>
+                    <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                      Bạn có thể copy cấu trúc đáp án từ các đề cũ để đẩy nhanh quá trình tạo đề mới.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50">
+                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-wider mb-1">Lưu ý</p>
+                    <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                      Dữ liệu cũ sẽ bị ghi đè nếu trùng mã câu hỏi.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 pt-0 flex gap-3">
+                <button 
+                  onClick={() => setShowImportJsonModal(false)}
+                  className="flex-1 px-8 py-4 rounded-2xl font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-all active:scale-95"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  onClick={handleImportJson}
+                  disabled={!importJsonValue.trim()}
+                  className="flex-[2] px-8 py-4 rounded-2xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                >
+                  Xác nhận Import
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
-const FileText = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-);
+
