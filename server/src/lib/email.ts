@@ -30,10 +30,11 @@ const getTransporter = () => {
       user: smtpUser!,
       pass: cleanPass!,
     },
+    family: 4, // FORCE IPv4 at the socket level - THIS IS THE KEY
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
-  });
+  } as any); // Cast to any because some types might not show family, but it's supported by the underlying net.connect
 };
 
 const escapeHtml = (value: string): string =>
