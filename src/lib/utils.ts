@@ -20,3 +20,7 @@ export function formatDate(date: string | Date): string {
     minute: '2-digit',
   }).format(new Date(date));
 }
+export function formatScore(score: any, decimals: number = 1): string {
+  const num = Number(score);
+  return isNaN(num) ? '0.0' : num.toFixed(decimals);
+}

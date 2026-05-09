@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { motion } from 'motion/react';
 import { History as HistoryIcon, Calendar, Clock, Award, ChevronRight } from 'lucide-react';
-import { formatDate, formatTime, cn } from '../lib/utils';
+import { formatDate, formatTime, cn, formatScore } from '../lib/utils';
 import { Link, Navigate } from 'react-router-dom';
 
 export const HistoryPage: React.FC = () => {
@@ -53,7 +53,7 @@ export const HistoryPage: React.FC = () => {
                     <div className="flex flex-wrap gap-4 mt-3 text-sm text-slate-500">
                       <div className="flex items-center gap-1">
                         <Award className="w-4 h-4 text-orange-500" />
-                        Điểm: <span className="font-bold text-slate-900">{attempt.score.toFixed(1)}</span>
+                        Điểm: <span className="font-bold text-slate-900">{formatScore(attempt.score)}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />

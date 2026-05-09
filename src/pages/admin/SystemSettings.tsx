@@ -2,7 +2,7 @@ import React from 'react';
 import { Activity, Database, RefreshCw, Server, ShieldCheck } from 'lucide-react';
 import { adminApi } from '../../lib/api';
 import { AdminSystemStatus } from '../../types';
-import { cn } from '../../lib/utils';
+import { cn, formatScore } from '../../lib/utils';
 
 export const SystemSettings: React.FC = () => {
   const [status, setStatus] = React.useState<AdminSystemStatus | null>(null);
@@ -81,7 +81,7 @@ export const SystemSettings: React.FC = () => {
             </div>
             <div className="flex justify-between gap-4">
               <span className="font-bold text-slate-400">Điểm trung bình</span>
-              <span className="font-semibold text-slate-700">{status?.stats.averageScore?.toFixed(2) ?? 'Chưa có dữ liệu'}</span>
+              <span className="font-semibold text-slate-700">{status?.stats.averageScore ? formatScore(status.stats.averageScore, 2) : 'Chưa có dữ liệu'}</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="font-bold text-slate-400">Học sinh</span>

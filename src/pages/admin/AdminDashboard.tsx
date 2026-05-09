@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import { adminApi } from '../../lib/api';
 import { AdminStats } from '../../types';
+import { formatScore } from '../../lib/utils';
 
 export const AdminDashboard: React.FC = () => {
   const { exams, attempts } = useApp();
@@ -128,7 +129,7 @@ export const AdminDashboard: React.FC = () => {
             </h3>
             <div className="flex justify-between text-sm">
               <span className="opacity-60">Điểm trung bình</span>
-              <span className="font-bold text-emerald-400">{adminStats?.averageScore?.toFixed(2) ?? 'Chưa có dữ liệu'}</span>
+              <span className="font-bold text-emerald-400">{adminStats?.averageScore ? formatScore(adminStats.averageScore, 2) : 'Chưa có dữ liệu'}</span>
             </div>
           </div>
         </div>

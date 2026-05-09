@@ -16,7 +16,7 @@ import {
   History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+import { cn, formatScore } from '../lib/utils';
 
 export const HomePage: React.FC = () => {
   const { exams, attempts } = useApp();
@@ -235,7 +235,7 @@ export const HomePage: React.FC = () => {
                         <div className="flex justify-between items-center">
                           <span className="text-[9px] font-bold text-slate-400 uppercase">{activity.date}</span>
                           <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">
-                            {Number(activity.score || 0).toFixed(1)}đ
+                            {formatScore(activity.score)}đ
                           </span>
                         </div>
                       </div>
