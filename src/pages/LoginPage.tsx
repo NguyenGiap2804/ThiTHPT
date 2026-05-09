@@ -21,6 +21,7 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   
   // Form State
+  const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -28,14 +29,16 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
     try {
       if (mode === 'login') {
         await login(email, password);
       } else {
         await register(email, password, name);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || 'Có lỗi xảy ra, vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -126,38 +129,16 @@ export const LoginPage: React.FC = () => {
       {/* Right Side: Auth Form */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 lg:p-20 relative bg-slate-50/50">
         <div className="w-full max-w-md">
-          {/* Mobile Header */}
-          <div className="lg:hidden flex flex-col items-center mb-12">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-200 mb-4">
-              <Sparkles className="w-8 h-8 text-white" />
+          {/* Logo Header - Refined Alignment */}
+          <div className="flex flex-col items-center mb-10">
+            <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-200/50 mb-4">
+              <Sparkles className="w-7 h-7 text-white" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">THPT.PRO</h2>
+            <h2 className="text-2xl font-black text-slate-900 tracking-[0.1em] text-center">THPT.PRO</h2>
+            <div className="h-1 w-8 bg-blue-500 rounded-full mt-1" />
           </div>
 
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex bg-slate-200/50 p-1.5 rounded-2xl w-full">
-                <button 
-                  onClick={() => setMode('login')}
-                  className={cn(
-                    "flex-1 py-3 rounded-xl text-sm font-black transition-all duration-300",
-                    mode === 'login' ? "bg-white text-blue-600 shadow-xl" : "text-slate-500 hover:text-slate-700"
-                  )}
-                >
-                  Đăng nhập
-                </button>
-                <button 
-                  onClick={() => setMode('register')}
-                  className={cn(
-                    "flex-1 py-3 rounded-xl text-sm font-black transition-all duration-300",
-                    mode === 'register' ? "bg-white text-blue-600 shadow-xl" : "text-slate-500 hover:text-slate-700"
-                  )}
-                >
-                  Tạo tài khoản
-                </button>
-              </div>
-            </div>
-
+          <div className="mb-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={mode}
@@ -165,18 +146,35 @@ export const LoginPage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
+                className="text-center"
               >
-                <h1 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">
+                <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">
                   {mode === 'login' ? 'Chào mừng bạn trở lại 👋' : 'Gia nhập THPT.PRO 🚀'}
                 </h1>
-                <p className="text-slate-500 font-medium leading-relaxed">
+                <p className="text-slate-500 font-medium text-sm leading-relaxed">
                   {mode === 'login' 
                     ? 'Bắt đầu hành trình chinh phục điểm 10 ngay hôm nay.' 
                     : 'Tạo tài khoản miễn phí và truy cập kho tài liệu khổng lồ.'}
                 </p>
               </motion.div>
             </AnimatePresence>
+
+            {/* Error Notification Popup */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-bold shadow-sm"
+                >
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {mode === 'register' && (
