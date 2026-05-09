@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { ASSET_BASE_URL } from './config';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,12 +26,9 @@ export function formatScore(score: any, decimals: number = 1): string {
   return isNaN(num) ? '0.0' : num.toFixed(decimals);
 }
 
-const BACKEND_URL = 'https://thithpt-backend.onrender.com';
-
 export function getImageUrl(path: string | undefined | null): string {
   if (!path) return '';
-  if (path.startsWith('http')) return path;
-  // Ensure path starts with /
+  if (/^(https?:|data:|blob:)/i.test(path)) return path;
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  return `${BACKEND_URL}${cleanPath}`;
+  return `${ASSET_BASE_URL}${cleanPath}`;
 }

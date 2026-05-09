@@ -1,25 +1,15 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { authMiddleware, adminMiddleware } from "../middleware/auth.js";
 import { query } from "../lib/database.js";
+import { buildStoredFilename, saveUploadedFile } from "../lib/storage.js";
 
 const router = Router();
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
-    cb(null, "uploads/");
-  },
-  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-    const uniqueSuffix = `${Date.now()}-${uuidv4().substring(0, 8)}`;
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
-
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 30 * 1024 * 1024, // 30MB limit for exam PDFs and rendered pages
   },
@@ -46,8 +36,19 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
     return;
   }
 
-  // Create URL for the file (relative to root)
-  const fileUrl = `/uploads/${req.file.filename}`;
+  const filename = buildStoredFilename(req.file.originalname);
+  let storedFile: Awaited<ReturnType<typeof saveUploadedFile>>;
+
+  try {
+    storedFile = await saveUploadedFile(req.file, filename);
+  } catch (error) {
+    console.error("Upload storage failed:", error);
+    res.status(500).json({
+      error: "Upload Failed",
+      message: error instanceof Error ? error.message : "Could not store uploaded file",
+    });
+    return;
+  }
 
   try {
     await query(
@@ -58,8 +59,8 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
       [
         uuidv4(),
         req.file.originalname,
-        req.file.filename,
-        fileUrl,
+        storedFile.filename,
+        storedFile.url,
         req.file.mimetype,
         req.file.size,
         req.user?.id ?? null,
@@ -72,10 +73,11 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
   res.status(200).json({
     message: "File uploaded successfully",
     data: {
-      url: fileUrl,
-      filename: req.file.filename,
+      url: storedFile.url,
+      filename: storedFile.filename,
       mimetype: req.file.mimetype,
       size: req.file.size,
+      storageProvider: storedFile.storageProvider,
     },
   });
 });

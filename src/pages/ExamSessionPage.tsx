@@ -165,12 +165,16 @@ export const ExamSessionPage: React.FC = () => {
       </header>
 
       <main className={cn(
-        "flex-1 p-4 md:p-6 gap-6 overflow-hidden",
-        layout === 'split' ? "flex h-full" : "flex flex-col overflow-y-auto"
+        "flex-1 p-4 md:p-6 gap-6",
+        layout === 'split'
+          ? "flex flex-col overflow-y-auto lg:flex-row lg:h-full lg:overflow-hidden"
+          : "flex flex-col overflow-y-auto"
       )}>
         <div className={cn(
           "transition-all duration-500 ease-in-out shrink-0",
-          layout === 'split' ? "flex-[1.4] h-full overflow-hidden" : "w-full h-[800px]"
+          layout === 'split'
+            ? "w-full h-[65vh] min-h-[520px] lg:flex-[1.4] lg:h-full lg:min-h-0 lg:overflow-hidden"
+            : "w-full h-[800px]"
         )}>
           <div className="h-full bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-xl shadow-slate-200/50 relative">
             {(exam.imagePages || []).length > 0 ? (
@@ -185,7 +189,9 @@ export const ExamSessionPage: React.FC = () => {
 
         <div className={cn(
           "transition-all duration-500 ease-in-out min-w-0",
-          layout === 'split' ? "flex-1 h-full overflow-hidden" : "w-full"
+          layout === 'split'
+            ? "w-full min-h-[720px] lg:flex-1 lg:h-full lg:min-h-0 lg:overflow-hidden"
+            : "w-full min-h-[720px]"
         )}>
           <AnswerSheet
             questions={exam.questionStructure}

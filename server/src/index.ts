@@ -13,6 +13,7 @@ import examRoutes from "./routes/exams.js";
 import attemptRoutes from "./routes/attempts.js";
 import uploadRoutes from "./routes/upload.js";
 import adminRoutes from "./routes/admin.js";
+import { getUploadStorageLabel } from "./lib/storage.js";
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -56,7 +57,15 @@ const authLimiter = rateLimit({
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(uploadsDir));
+app.use(
+  "/uploads",
+  express.static(uploadsDir, {
+    setHeaders: (res) => {
+      res.set("Cross-Origin-Resource-Policy", "cross-origin");
+      res.set("Access-Control-Allow-Origin", "*");
+    },
+  })
+);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const timestamp = new Date().toISOString();
@@ -101,6 +110,7 @@ app.listen(PORT, () => {
   console.log(`THPT Exam Prep Server running on http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`Database: ${process.env.PGHOST || "localhost"}`);
+  console.log(`Upload storage: ${getUploadStorageLabel()}`);
 });
 
 export default app;

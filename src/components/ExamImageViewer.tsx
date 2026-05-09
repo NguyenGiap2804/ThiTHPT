@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
+import { ImageOff, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
 import { cn, getImageUrl } from '../lib/utils';
 
 interface ExamImageViewerProps {
@@ -11,12 +11,22 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [zoom, setZoom] = useState(0.85);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const imageUrls = images.map(getImageUrl);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.4));
   const toggleFullScreen = () => setIsFullScreen(!isFullScreen);
+  const markImageFailed = (url: string) => {
+    setFailedImages(prev => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  };
 
   const scrollToPage = (idx: number) => {
     pageRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -44,6 +54,10 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
 
     return () => observer.disconnect();
   }, [images.length]);
+
+  useEffect(() => {
+    setFailedImages(new Set());
+  }, [images.join('|')]);
 
   return (
     <div className={cn(
@@ -92,7 +106,7 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
             Trang tài liệu
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent">
-            {images.map((img, idx) => (
+            {imageUrls.map((imageUrl, idx) => (
               <button
                 key={idx}
                 onClick={() => scrollToPage(idx)}
@@ -103,15 +117,22 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
                     : "border-transparent hover:border-slate-600 bg-[#2b2d31]"
                 )}
               >
-                <img 
-                  src={getImageUrl(img)} 
-                  alt={`Thumb ${idx + 1}`} 
-                  className={cn(
-                    "w-full h-full object-cover transition-opacity duration-300",
-                    currentPage === idx ? "opacity-100" : "opacity-40 group-hover:opacity-70"
-                  )} 
-                  referrerPolicy="no-referrer" 
-                />
+                {failedImages.has(imageUrl) ? (
+                  <div className="flex h-full w-full items-center justify-center bg-slate-800 text-slate-500">
+                    <ImageOff className="h-6 w-6" />
+                  </div>
+                ) : (
+                  <img
+                    src={imageUrl}
+                    alt={`Thumb ${idx + 1}`}
+                    className={cn(
+                      "w-full h-full object-cover transition-opacity duration-300",
+                      currentPage === idx ? "opacity-100" : "opacity-40 group-hover:opacity-70"
+                    )}
+                    referrerPolicy="no-referrer"
+                    onError={() => markImageFailed(imageUrl)}
+                  />
+                )}
                 <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/60 text-[10px] font-bold text-white backdrop-blur-[2px]">
                   {idx + 1}
                 </div>
@@ -126,7 +147,7 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
           className="flex-1 overflow-y-auto bg-[#323639] scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent p-8 scroll-smooth"
         >
           <div className="flex flex-col items-center gap-8 min-h-full">
-            {images.map((img, idx) => (
+            {imageUrls.map((imageUrl, idx) => (
               <motion.div
                 key={idx}
                 ref={el => pageRefs.current[idx] = el}
@@ -141,12 +162,25 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
                 }}
                 className="shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-sm bg-white h-fit max-w-[900px] w-full"
               >
-                <img 
-                  src={getImageUrl(img)} 
-                  alt={`Exam Page ${idx + 1}`}
-                  className="w-full h-auto select-none"
-                  referrerPolicy="no-referrer"
-                />
+                {failedImages.has(imageUrl) ? (
+                  <div className="flex min-h-[360px] w-full flex-col items-center justify-center gap-3 p-8 text-center text-slate-500">
+                    <ImageOff className="h-10 w-10 text-slate-400" />
+                    <div>
+                      <p className="text-sm font-bold text-slate-700">Không tải được ảnh trang {idx + 1}</p>
+                      <p className="mt-1 max-w-md text-xs font-medium text-slate-400">
+                        File ảnh không còn tồn tại trên server lưu trữ. Vui lòng tải lại file đề trong trang quản trị.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={imageUrl}
+                    alt={`Exam Page ${idx + 1}`}
+                    className="w-full h-auto select-none"
+                    referrerPolicy="no-referrer"
+                    onError={() => markImageFailed(imageUrl)}
+                  />
+                )}
               </motion.div>
             ))}
           </div>

@@ -4,6 +4,9 @@
   "description": "Backend server for THPT Exam Prep System",
   "type": "module",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "db:migrate": "tsx src/db/migrate.ts",
@@ -13,6 +16,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "@types/pg": "^8.20.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
