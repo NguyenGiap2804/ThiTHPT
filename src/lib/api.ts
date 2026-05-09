@@ -1,6 +1,6 @@
 import { Exam, Attempt, User, Subject, Notification, AdminStats, AdminUser, AdminSystemStatus } from '../types';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'https://thithpt-backend.onrender.com/api';
 
 /**
  * Common fetch wrapper

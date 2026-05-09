@@ -5,7 +5,7 @@ import {
   createExamWithDetails,
   updateExamMetadata,
   deleteExamFull
-} from "../lib/queries/examQueries";
+} from "../lib/queries/examQueries.js";
 
 /**
  * Get all exams / exams with filters

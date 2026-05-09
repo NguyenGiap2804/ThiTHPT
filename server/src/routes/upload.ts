@@ -2,8 +2,8 @@ import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { authMiddleware, adminMiddleware } from "../middleware/auth";
-import { executeNonQuery } from "../lib/database";
+import { authMiddleware, adminMiddleware } from "../middleware/auth.js";
+import { query } from "../lib/database.js";
 
 const router = Router();
 
@@ -50,20 +50,20 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
   const fileUrl = `/uploads/${req.file.filename}`;
 
   try {
-    await executeNonQuery(
+    await query(
       `
-      INSERT INTO UploadedFiles (id, originalName, filename, url, mimeType, sizeBytes, uploadedBy, createdAt)
-      VALUES (@id, @originalName, @filename, @url, @mimeType, @sizeBytes, @uploadedBy, GETUTCDATE())
+      INSERT INTO "UploadedFiles" (id, "originalName", filename, url, "mimeType", "sizeBytes", "uploadedBy", "createdAt")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
     `,
-      {
-        id: uuidv4(),
-        originalName: req.file.originalname,
-        filename: req.file.filename,
-        url: fileUrl,
-        mimeType: req.file.mimetype,
-        sizeBytes: req.file.size,
-        uploadedBy: req.user?.id ?? null,
-      }
+      [
+        uuidv4(),
+        req.file.originalname,
+        req.file.filename,
+        fileUrl,
+        req.file.mimetype,
+        req.file.size,
+        req.user?.id ?? null,
+      ]
     );
   } catch (error) {
     console.warn("Upload metadata was not stored:", error);

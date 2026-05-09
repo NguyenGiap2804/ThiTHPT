@@ -1,88 +1,91 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import sql from "mssql";
-import { getPool, closePool } from "../lib/database";
+import { query, transaction } from "../lib/database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const migrationsDir = path.join(__dirname, "migrations");
 
-const splitSqlBatches = (sqlText: string): string[] =>
-  sqlText
-    .split(/^\s*GO\s*;?\s*$/gim)
-    .map((batch) => batch.trim())
-    .filter(Boolean);
+/**
+ * Simplified migration for PostgreSQL
+ * This script will run schema_pg.sql first if the database is empty,
+ * then run any incremental migrations in the migrations folder.
+ */
 
-const ensureMigrationTable = async (pool: sql.ConnectionPool) => {
-  await pool.request().query(`
-    IF OBJECT_ID('dbo.SchemaMigrations', 'U') IS NULL
-    BEGIN
-      CREATE TABLE dbo.SchemaMigrations (
-        id INT IDENTITY(1,1) PRIMARY KEY,
-        name NVARCHAR(255) NOT NULL UNIQUE,
-        appliedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-      );
-    END
+async function ensureMigrationTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS "SchemaMigrations" (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL UNIQUE,
+      "appliedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
   `);
-};
+}
 
-const getAppliedMigrations = async (pool: sql.ConnectionPool): Promise<Set<string>> => {
-  const result = await pool.request().query("SELECT name FROM dbo.SchemaMigrations");
-  return new Set(result.recordset.map((row: { name: string }) => row.name));
-};
+async function getAppliedMigrations(): Promise<Set<string>> {
+  const rows = await query<{ name: string }>(`SELECT name FROM "SchemaMigrations"`);
+  return new Set(rows.map(r => r.name));
+}
 
-const applyMigration = async (pool: sql.ConnectionPool, fileName: string) => {
-  const migrationPath = path.join(migrationsDir, fileName);
-  const sqlText = fs.readFileSync(migrationPath, "utf8");
-  const batches = splitSqlBatches(sqlText);
-  const transaction = new sql.Transaction(pool);
+async function runInitialSchema() {
+  const schemaPath = path.join(__dirname, "schema_pg.sql");
+  if (!fs.existsSync(schemaPath)) return;
 
-  await transaction.begin();
-  try {
-    for (const batch of batches) {
-      await new sql.Request(transaction).query(batch);
-    }
-
-    await new sql.Request(transaction)
-      .input("name", sql.NVarChar(255), fileName)
-      .query("INSERT INTO dbo.SchemaMigrations (name) VALUES (@name)");
-
-    await transaction.commit();
-  } catch (error) {
-    await transaction.rollback();
-    throw error;
-  }
-};
-
-const main = async () => {
-  const pool = await getPool();
-  await ensureMigrationTable(pool);
-
-  const applied = await getAppliedMigrations(pool);
-  const migrationFiles = fs
-    .readdirSync(migrationsDir)
-    .filter((file) => file.endsWith(".sql"))
-    .sort();
-
-  for (const fileName of migrationFiles) {
-    if (applied.has(fileName)) {
-      console.log(`SKIP ${fileName}`);
-      continue;
-    }
-
-    console.log(`APPLY ${fileName}`);
-    await applyMigration(pool, fileName);
-  }
-
-  console.log("Database migrations are up to date.");
-};
-
-main()
-  .catch((error) => {
-    console.error("Migration failed:", error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await closePool();
+  console.log("Running initial PostgreSQL schema...");
+  const sql = fs.readFileSync(schemaPath, "utf8");
+  
+  await transaction(async (client) => {
+    await client.query(sql);
+    // Mark as applied if it's the first time
+    await client.query('INSERT INTO "SchemaMigrations" (name) VALUES ($1) ON CONFLICT DO NOTHING', ["schema_pg.sql"]);
   });
+  console.log("✅ Initial schema applied.");
+}
+
+async function main() {
+  try {
+    await ensureMigrationTable();
+    
+    const applied = await getAppliedMigrations();
+    
+    // If schema_pg.sql hasn't been applied yet, run it
+    if (!applied.has("schema_pg.sql")) {
+      await runInitialSchema();
+      applied.add("schema_pg.sql");
+    }
+
+    const migrationsDir = path.join(__dirname, "migrations");
+    if (!fs.existsSync(migrationsDir)) {
+      console.log("No migrations folder found.");
+      return;
+    }
+
+    const files = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith(".sql"))
+      .sort();
+
+    for (const file of files) {
+      if (applied.has(file)) {
+        console.log(`SKIP ${file}`);
+        continue;
+      }
+
+      console.log(`APPLY ${file}`);
+      const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+      
+      await transaction(async (client) => {
+        await client.query(sql);
+        await client.query('INSERT INTO "SchemaMigrations" (name) VALUES ($1)', [file]);
+      });
+      console.log(`✅ ${file} applied.`);
+    }
+
+    console.log("Database migrations are up to date.");
+    process.exit(0);
+  } catch (err) {
+    console.error("Migration failed:", err);
+    process.exit(1);
+  }
+}
+
+main();

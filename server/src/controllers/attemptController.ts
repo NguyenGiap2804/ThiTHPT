@@ -6,7 +6,7 @@ import {
   calculateAttemptScore,
   getAttemptWithDetails,
   getUserAttempts as getUserAttemptsFromDb,
-} from "../lib/queries/attemptQueries";
+} from "../lib/queries/attemptQueries.js";
 
 /**
  * Submit exam attempt

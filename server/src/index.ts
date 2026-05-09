@@ -8,11 +8,11 @@ import fs from "fs";
 
 dotenv.config();
 
-import authRoutes from "./routes/auth";
-import examRoutes from "./routes/exams";
-import attemptRoutes from "./routes/attempts";
-import uploadRoutes from "./routes/upload";
-import adminRoutes from "./routes/admin";
+import authRoutes from "./routes/auth.js";
+import examRoutes from "./routes/exams.js";
+import attemptRoutes from "./routes/attempts.js";
+import uploadRoutes from "./routes/upload.js";
+import adminRoutes from "./routes/admin.js";
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -95,7 +95,7 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`THPT Exam Prep Server running on http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`Database: ${process.env.MSSQL_SERVER || "localhost"}`);
+  console.log(`Database: ${process.env.PGHOST || "localhost"}`);
 });
 
 export default app;

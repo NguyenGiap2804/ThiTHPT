@@ -1,4 +1,4 @@
-import { executeQuery, executeQuerySingle, executeNonQuery } from "../database";
+import { query, queryOne } from "../database.js";
 
 export type SubmittedAttemptAnswer = {
   questionId: string;
@@ -46,16 +46,17 @@ export const createAttempt = async (
   emptyCount: number,
   timeSpent: number
 ) => {
-  const query = `
-    INSERT INTO Attempts (
-      id, examId, studentId, score, correctCount, wrongCount, emptyCount, timeSpent, submittedAt
+  const text = `
+    INSERT INTO "Attempts" (
+      id, "examId", "studentId", score, "correctCount", "wrongCount", "emptyCount", "timeSpent", "submittedAt"
     )
     VALUES (
-      @id, @examId, @userId, @score, @correctCount, @wrongCount, @emptyCount, @timeSpent, GETUTCDATE()
+      $1, $2, $3, $4, $5, $6, $7, $8, NOW()
     )
+    RETURNING id
   `;
 
-  const rowsAffected = await executeNonQuery(query, {
+  const result = await queryOne(text, [
     id,
     examId,
     userId,
@@ -64,57 +65,57 @@ export const createAttempt = async (
     wrongCount,
     emptyCount,
     timeSpent,
-  });
+  ]);
 
-  return rowsAffected > 0 ? findAttemptById(id) : null;
+  return result ? findAttemptById(id) : null;
 };
 
 /**
  * Query: Find attempt by ID.
  */
 export const findAttemptById = async (id: string) => {
-  const query = `
+  const text = `
     SELECT
       a.id,
-      a.examId,
-      a.studentId as userId,
-      e.subjectId,
-      e.title as examTitle,
+      a."examId",
+      a."studentId" as "userId",
+      e."subjectId",
+      e.title as "examTitle",
       a.score,
-      a.correctCount,
-      a.wrongCount,
-      a.emptyCount,
-      a.timeSpent,
-      a.submittedAt as [date]
-    FROM Attempts a
-    JOIN Exams e ON a.examId = e.id
-    WHERE a.id = @id
+      a."correctCount",
+      a."wrongCount",
+      a."emptyCount",
+      a."timeSpent",
+      a."submittedAt" as "date"
+    FROM "Attempts" a
+    JOIN "Exams" e ON a."examId" = e.id
+    WHERE a.id = $1
   `;
-  return executeQuerySingle(query, { id });
+  return queryOne(text, [id]);
 };
 
 /**
  * Query: Get all attempts for a user.
  */
 export const getUserAttempts = async (userId: string) => {
-  const query = `
+  const text = `
     SELECT
       a.id,
-      a.examId,
-      e.subjectId,
-      e.title as examTitle,
+      a."examId",
+      e."subjectId",
+      e.title as "examTitle",
       a.score,
-      a.correctCount,
-      a.wrongCount,
-      a.emptyCount,
-      a.timeSpent,
-      a.submittedAt as [date]
-    FROM Attempts a
-    JOIN Exams e ON a.examId = e.id
-    WHERE a.studentId = @userId
-    ORDER BY a.submittedAt DESC
+      a."correctCount",
+      a."wrongCount",
+      a."emptyCount",
+      a."timeSpent",
+      a."submittedAt" as "date"
+    FROM "Attempts" a
+    JOIN "Exams" e ON a."examId" = e.id
+    WHERE a."studentId" = $1
+    ORDER BY a."submittedAt" DESC
   `;
-  return executeQuery(query, { userId });
+  return query(text, [userId]);
 };
 
 /**
@@ -124,39 +125,39 @@ export const getAttemptWithDetails = async (id: string) => {
   const attempt = await findAttemptById(id);
   if (!attempt) return null;
 
-  const rows = await executeQuery(
+  const rows = await query(
     `
     SELECT
-      aa.questionId,
-      aa.selectedOption,
-      aa.trueFalseAnswers,
-      aa.shortAnswer,
-      aa.isCorrect,
+      aa."questionId",
+      aa."selectedOption",
+      aa."trueFalseAnswers",
+      aa."shortAnswer",
+      aa."isCorrect",
       aa.points,
       q.label,
-      q.[type],
+      q.type,
       q.part,
       q.options,
-      q.subQuestions,
-      ak.correctAnswer,
-      ex.[text] as explanation
-    FROM AttemptAnswers aa
-    JOIN QuestionStructures q ON aa.questionId = q.id
-    LEFT JOIN AnswerKeys ak ON q.id = ak.questionId
-    LEFT JOIN Explanations ex ON q.id = ex.questionId
-    WHERE aa.attemptId = @attemptId
-    ORDER BY q.part, q.questionNumber, q.label
+      q."subQuestions",
+      ak."correctAnswer",
+      ex.text as explanation
+    FROM "AttemptAnswers" aa
+    JOIN "QuestionStructures" q ON aa."questionId" = q.id
+    LEFT JOIN "AnswerKeys" ak ON q.id = ak."questionId"
+    LEFT JOIN "Explanations" ex ON q.id = ex."questionId"
+    WHERE aa."attemptId" = $1
+    ORDER BY q.part, q."questionNumber", q.label
   `,
-    { attemptId: id }
+    [id]
   );
 
   const answers = rows.map((row: any) => ({
     questionId: row.questionId,
     selectedOption: row.selectedOption,
-    trueFalseAnswers: parseJson(row.trueFalseAnswers),
+    trueFalseAnswers: typeof row.trueFalseAnswers === 'string' ? JSON.parse(row.trueFalseAnswers) : row.trueFalseAnswers,
     shortAnswer: row.shortAnswer,
-    correctAnswer: parseJson(row.correctAnswer),
-    isCorrect: row.isCorrect === null || row.isCorrect === undefined ? null : Boolean(row.isCorrect),
+    correctAnswer: typeof row.correctAnswer === 'string' ? JSON.parse(row.correctAnswer) : row.correctAnswer,
+    isCorrect: row.isCorrect,
     points: Number(row.points ?? 0),
     explanation: row.explanation ?? null,
   }));
@@ -175,46 +176,46 @@ export const saveAttemptAnswer = async (
   attemptId: string,
   answer: ScoredAttemptAnswer
 ) => {
-  const query = `
-    INSERT INTO AttemptAnswers (
-      id, attemptId, questionId, selectedOption, trueFalseAnswers, shortAnswer, isCorrect, points, createdAt
+  const text = `
+    INSERT INTO "AttemptAnswers" (
+      id, "attemptId", "questionId", "selectedOption", "trueFalseAnswers", "shortAnswer", "isCorrect", points, "createdAt"
     )
     VALUES (
-      @id, @attemptId, @questionId, @selectedOption, @trueFalseAnswers, @shortAnswer, @isCorrect, @points, GETUTCDATE()
+      $1, $2, $3, $4, $5, $6, $7, $8, NOW()
     )
   `;
 
-  return executeNonQuery(query, {
+  return query(text, [
     id,
     attemptId,
-    questionId: answer.questionId,
-    selectedOption: answer.selectedOption ?? null,
-    trueFalseAnswers: answer.trueFalseAnswers ? JSON.stringify(answer.trueFalseAnswers) : null,
-    shortAnswer: answer.shortAnswer ?? null,
-    isCorrect: answer.isCorrect,
-    points: answer.points,
-  });
+    answer.questionId,
+    answer.selectedOption ?? null,
+    answer.trueFalseAnswers ? JSON.stringify(answer.trueFalseAnswers) : null,
+    answer.shortAnswer ?? null,
+    answer.isCorrect,
+    answer.points,
+  ]);
 };
 
 /**
  * Query: Get correct answers and scoring metadata for an exam.
  */
 export const getExamAnswerKey = async (examId: string) => {
-  const query = `
+  const text = `
     SELECT
-      q.id as questionId,
-      q.[type],
+      q.id as "questionId",
+      q.type,
       q.part,
-      q.subQuestions,
-      ak.correctAnswer,
-      ex.[text] as explanation
-    FROM QuestionStructures q
-    LEFT JOIN AnswerKeys ak ON q.id = ak.questionId
-    LEFT JOIN Explanations ex ON q.id = ex.questionId
-    WHERE q.examId = @examId
-    ORDER BY q.part, q.questionNumber, q.label
+      q."subQuestions",
+      ak."correctAnswer",
+      ex.text as explanation
+    FROM "QuestionStructures" q
+    LEFT JOIN "AnswerKeys" ak ON q.id = ak."questionId"
+    LEFT JOIN "Explanations" ex ON q.id = ex."questionId"
+    WHERE q."examId" = $1
+    ORDER BY q.part, q."questionNumber", q.label
   `;
-  return executeQuery(query, { examId });
+  return query(text, [examId]);
 };
 
 /**
@@ -244,7 +245,7 @@ export const calculateAttemptScore = async (
     maxRawScore += 1;
 
     const submitted = (submittedByQuestion.get(row.questionId) || { questionId: row.questionId }) as SubmittedAttemptAnswer;
-    const correctAnswer = parseJson(row.correctAnswer);
+    const correctAnswer = typeof row.correctAnswer === 'string' ? JSON.parse(row.correctAnswer) : row.correctAnswer;
     let points = 0;
     let isCorrect: boolean | null = false;
     let isEmpty = false;
@@ -255,11 +256,11 @@ export const calculateAttemptScore = async (
       isCorrect = !isEmpty && normalizeText(selectedOption) === normalizeText(correctAnswer);
       points = isCorrect ? 1 : 0;
     } else if (row.type === "true_false") {
-      const subQuestions = parseStringArray(row.subQuestions, ["a", "b", "c", "d"]);
+      const subQuestions = typeof row.subQuestions === 'string' ? JSON.parse(row.subQuestions) : (row.subQuestions || ["a", "b", "c", "d"]);
       const expected = typeof correctAnswer === "object" && correctAnswer !== null ? correctAnswer as Record<string, boolean> : {};
       const actual = submitted.trueFalseAnswers || {};
-      const answeredCount = subQuestions.filter((sub) => actual[sub] !== undefined && actual[sub] !== null).length;
-      const subCorrect = subQuestions.filter((sub) => actual[sub] === expected[sub]).length;
+      const answeredCount = subQuestions.filter((sub: string) => actual[sub] !== undefined && actual[sub] !== null).length;
+      const subCorrect = subQuestions.filter((sub: string) => actual[sub] === expected[sub]).length;
 
       isEmpty = answeredCount === 0;
       isCorrect = !isEmpty && subCorrect === subQuestions.length;
@@ -311,15 +312,25 @@ export const calculateAttemptScore = async (
  * Query: Get attempt statistics for admin.
  */
 export const getAttemptStatistics = async (examId: string) => {
-  const query = `
+  const text = `
     SELECT
-      COUNT(*) as totalAttempts,
-      AVG(score) as averageScore,
-      MAX(score) as maxScore,
-      MIN(score) as minScore,
-      SUM(CASE WHEN score >= 5 THEN 1 ELSE 0 END) as passCount
-    FROM Attempts
-    WHERE examId = @examId
+      COUNT(*) as "totalAttempts",
+      AVG(score) as "averageScore",
+      MAX(score) as "maxScore",
+      MIN(score) as "minScore",
+      SUM(CASE WHEN score >= 5 THEN 1 ELSE 0 END) as "passCount"
+    FROM "Attempts"
+    WHERE "examId" = $1
   `;
-  return executeQuerySingle(query, { examId });
+  const stats = await queryOne(text, [examId]);
+  if (stats) {
+    return {
+      totalAttempts: Number(stats.totalAttempts),
+      averageScore: Number(stats.averageScore),
+      maxScore: Number(stats.maxScore),
+      minScore: Number(stats.minScore),
+      passCount: Number(stats.passCount)
+    };
+  }
+  return null;
 };

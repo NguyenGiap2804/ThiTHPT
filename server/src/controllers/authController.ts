@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import { generateToken } from "../middleware/auth";
-import { findUserByEmail, createUser, emailExists, findUserById } from "../lib/queries/userQueries";
+import { generateToken } from "../middleware/auth.js";
+import { findUserByEmail, createUser, emailExists, findUserById } from "../lib/queries/userQueries.js";
 
 /**
  * Login user

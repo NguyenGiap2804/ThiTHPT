@@ -3,8 +3,8 @@ import {
   submitAttempt,
   getAttemptResult,
   getUserAttempts,
-} from "../controllers/attemptController";
-import { authMiddleware } from "../middleware/auth";
+} from "../controllers/attemptController.js";
+import { authMiddleware } from "../middleware/auth.js";
 
 const router = Router();
 

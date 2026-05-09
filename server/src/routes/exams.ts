@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { getAllExams, getAllAdminExams, getExamDetail, getAdminExamDetail, createExam, updateExam, deleteExam } from "../controllers/examController";
-import { authMiddleware, adminMiddleware } from "../middleware/auth";
+import { getAllExams, getAllAdminExams, getExamDetail, getAdminExamDetail, createExam, updateExam, deleteExam } from "../controllers/examController.js";
+import { authMiddleware, adminMiddleware } from "../middleware/auth.js";
 
 const router = Router();
 

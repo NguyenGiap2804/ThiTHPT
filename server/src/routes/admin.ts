@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import { authMiddleware, adminMiddleware } from "../middleware/auth";
-import { getAdminStats, getAdminSystemStatus } from "../lib/queries/adminQueries";
-import { deleteUser, getAllUsers, updateUser } from "../lib/queries/userQueries";
+import { authMiddleware, adminMiddleware } from "../middleware/auth.js";
+import { getAdminStats, getAdminSystemStatus } from "../lib/queries/adminQueries.js";
+import { deleteUser, getAllUsers, updateUser } from "../lib/queries/userQueries.js";
 
 const router = Router();
 

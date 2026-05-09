@@ -1,37 +1,38 @@
-import { executeQuery, executeQuerySingle } from "../database";
+import { query, queryOne } from "../database.js";
 
 export const getAdminStats = async () => {
-  const stats = await executeQuerySingle(`
+  const stats = await queryOne(`
     SELECT
-      (SELECT COUNT(*) FROM Exams) as totalExams,
-      (SELECT COUNT(*) FROM Attempts) as totalAttempts,
-      (SELECT COUNT(*) FROM Users WHERE role = 'student') as totalStudents,
-      (SELECT AVG(score) FROM Attempts) as averageScore
+      (SELECT COUNT(*) FROM "Exams") as "totalExams",
+      (SELECT COUNT(*) FROM "Attempts") as "totalAttempts",
+      (SELECT COUNT(*) FROM "Users" WHERE role = 'student') as "totalStudents",
+      (SELECT AVG(score) FROM "Attempts") as "averageScore"
   `);
 
   let unreadNotifications = 0;
   try {
-    const notificationStats = await executeQuerySingle(`
-      SELECT COUNT(*) as unreadNotifications
-      FROM Notifications
-      WHERE isRead = 0
+    const notificationStats = await queryOne(`
+      SELECT COUNT(*) as "unreadNotifications"
+      FROM "Notifications"
+      WHERE "isRead" = FALSE
     `);
     unreadNotifications = Number(notificationStats?.unreadNotifications ?? 0);
   } catch (error) {
     unreadNotifications = 0;
   }
 
-  const recentAttempts = await executeQuery(`
-    SELECT TOP 5
+  const recentAttempts = await query(`
+    SELECT
       a.id,
       a.score,
-      a.submittedAt,
-      u.name as studentName,
-      e.title as examTitle
-    FROM Attempts a
-    JOIN Users u ON a.studentId = u.id
-    JOIN Exams e ON a.examId = e.id
-    ORDER BY a.submittedAt DESC
+      a."submittedAt",
+      u.name as "studentName",
+      e.title as "examTitle"
+    FROM "Attempts" a
+    JOIN "Users" u ON a."studentId" = u.id
+    JOIN "Exams" e ON a."examId" = e.id
+    ORDER BY a."submittedAt" DESC
+    LIMIT 5
   `);
 
   return {
@@ -47,11 +48,11 @@ export const getAdminStats = async () => {
 export const getAdminSystemStatus = async () => {
   const [stats, system] = await Promise.all([
     getAdminStats(),
-    executeQuerySingle(`
+    queryOne(`
       SELECT
-        DB_NAME() as databaseName,
-        CONVERT(varchar(33), SYSDATETIMEOFFSET(), 126) as serverTime,
-        @@VERSION as sqlVersion
+        current_database() as "databaseName",
+        TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as "serverTime",
+        version() as "sqlVersion"
     `),
   ]);
 
