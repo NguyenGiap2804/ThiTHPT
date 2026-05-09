@@ -152,18 +152,16 @@ export const AnswerSheet: React.FC<AnswerSheetProps> = ({
                   }}
                   className={cn(
                     "w-full aspect-square rounded-xl flex items-center justify-center text-[11px] font-black transition-all relative border-2",
-                    // Status colors
-                    isFlagged 
+                    isCurrent 
+                      ? "border-blue-600 bg-white text-blue-600 shadow-lg shadow-blue-100 ring-2 ring-blue-100 z-10" 
+                      : isFlagged 
                       ? "bg-amber-500 border-amber-500 text-white shadow-sm" 
                       : isDone 
                       ? "bg-blue-600 border-blue-600 text-white shadow-sm" 
-                      : "bg-white text-slate-400 border-slate-100 hover:border-blue-200",
-                    // Current indicator
-                    isCurrent 
-                      ? "border-blue-600 ring-4 ring-blue-100 z-10 scale-110 shadow-lg" 
-                      : "",
-                    // Adjust text color for current empty question
-                    (isCurrent && !isFlagged && !isDone) && "text-blue-600"
+                      : "bg-white text-slate-400 border-slate-100 hover:border-blue-200 hover:text-blue-600",
+                    // Apply status background even if current
+                    isCurrent && isFlagged && "bg-amber-500 text-white border-blue-600 ring-4 ring-blue-100",
+                    isCurrent && isDone && "bg-blue-600 text-white border-slate-900 ring-4 ring-blue-100"
                   )}
                 >
                   <span className="relative top-[0.5px]">{idx + 1}</span>

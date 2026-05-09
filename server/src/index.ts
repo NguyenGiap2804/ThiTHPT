@@ -25,6 +25,7 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
   })
 );
 
