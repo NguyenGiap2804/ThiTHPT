@@ -1,46 +1,37 @@
-# Báo Cáo Triển Khai Hệ Thống ThiTHPT (Production)
+# THPT Exam Prep - Báo cáo Triển khai (Deployment Report)
 
-Hệ thống đã được chuyển đổi thành công từ môi trường phát triển cục bộ (Local) sang môi trường vận hành thực tế (Cloud) với kiến trúc hiện đại, bảo mật và hiệu năng cao.
+## 📌 Trạng thái hiện tại
+Hệ thống đã được triển khai thành công trên môi trường Production:
+- **Frontend:** [https://thithpt-website.web.app](https://thithpt-website.web.app) (Firebase Hosting)
+- **Backend:** [https://thithpt-backend.onrender.com](https://thithpt-backend.onrender.com) (Render Web Service)
+- **Database:** **Supabase PostgreSQL** (Production Node)
 
-## 1. Hạ Tầng Kỹ Thuật (Infrastructure)
-- **Database:** Chuyển đổi từ SQL Server sang **Supabase PostgreSQL**.
-- **Backend:** Triển khai trên nền tảng **Render.com** (Node.js/Express).
-- **Frontend:** Triển khai trên **Firebase Hosting** (React/Vite).
-- **API Communication:** Đã cấu hình kết nối an toàn giữa Firebase và Render qua môi trường CORS.
-
-## 2. Các Công Việc Đã Thực Hiện
-### 🔧 Kỹ Thuật & Deployment
-- **ESM Migration:** Sửa lỗi import module cho môi trường Node.js Production.
+## 🛠️ Các cải tiến đã thực hiện
 - **Database Setup:** Cấu hình **PostgreSQL Transaction Pooler** (Cổng 6543) để tối ưu hóa kết nối.
 - **Environment Variables:** Thiết lập đầy đủ các biến môi trường trên Render và Firebase.
-
-### 🛡️ Bảo Mật & Hệ Thống (Security & System)
 - **CORS & Assets:** Cấu hình **Helmet Cross-Origin Resource Policy** trên server để cho phép hiển thị ảnh từ backend trên frontend Firebase.
 - **PDF Processing:** Hoàn thiện tính năng tải đề PDF và tự động chuyển đổi thành ảnh trang đề (image pages) để học sinh xem trực tiếp.
 - **Admin Validation:** Cải tiến hệ thống kiểm tra dữ liệu khi tạo đề thi, liệt kê chi tiết các trường còn thiếu (Tiêu đề, Mã đề, Đáp án từng câu).
 
-### 📊 Tích Hợp Dữ Liệu Thực (Data Integration)
-- **Real-time Statistics:** Thay thế toàn bộ dữ liệu mẫu (mock) bằng dữ liệu thực từ Database:
-    - **Lượt làm bài:** Tự động đếm từ bảng `Attempts`.
-    - **Điểm trung bình:** Tính toán dựa trên kết quả làm bài của tất cả học sinh.
-    - **Độ khó:** Tự động phân loại (Dễ/Trung bình/Khó) dựa trên điểm số trung bình thực tế.
-- **Hệ thống Tìm kiếm:** Kích hoạt tính năng tìm kiếm theo tên, mã đề và lọc theo môn học trên trang chủ.
+## ✅ Bug Fixes (Mới nhất)
+- [x] **Hệ thống nộp bài:** Đã sửa lỗi Foreign Key Constraint khi nộp bài. Backend hiện tại ghi nhật ký chi tiết hơn để bắt lỗi nếu có.
+- [x] **Modal Quản lý:** Sửa nút "Tiếp theo" bị kẹt ở tab Đáp án. Thêm trạng thái "Đang lưu..." cho nút cập nhật đề thi.
+- [x] **Trình xem đề:** Sửa lỗi trang đề tự động nhảy xuống trang 4 khi mới bắt đầu.
+- [x] **Khắc phục lỗi ảnh:** Giải thích nguyên nhân và hướng xử lý việc mất ảnh sau khi deploy lại.
 
-### 🎨 Giao Diện & Trải Nghiệm (UI/UX)
-- **Image Rendering Fix:** Triển khai utility `getImageUrl` để xử lý đường dẫn ảnh linh hoạt giữa môi trường dev và production.
-- **Vietnamese Localization:** Chuẩn hóa hiển thị tên môn học bằng tiếng Việt trên toàn bộ hệ thống (Toán học, Tiếng Anh, ...).
-- **Exam Session Safety:** Thêm cảnh báo xác nhận khi học sinh muốn thoát khỏi bài thi đang làm để tránh mất tiến trình.
+## ⚠️ Cảnh báo quan trọng: Lưu trữ ảnh
+Hiện tại, hệ thống Backend đang được deploy trên Render gói miễn phí. Render có một đặc điểm là **Bộ nhớ tạm thời (Ephemeral Storage)**.
+- **Vấn đề:** Mọi ảnh bạn tải lên (PDF, trang đề, ảnh dán vào lời giải) được lưu trong thư mục `server/uploads`. Khi bạn Push code mới lên Git hoặc Deploy lại, Render sẽ xóa sạch thư mục này và tạo mới server. Đó là lý do ảnh bị lỗi sau khi deploy.
+- **Giải pháp:** Để ảnh tồn tại vĩnh viễn, chúng ta cần cấu hình một dịch vụ lưu trữ bên ngoài (Cloud Storage) như:
+  1. **Supabase Storage:** (Khuyên dùng vì bạn đang dùng DB của họ).
+  2. **Cloudinary:** Dễ tích hợp cho việc xử lý ảnh.
+  3. **AWS S3:** Chuyên nghiệp và bền vững.
+- **Tạm thời:** Nếu bạn muốn ảnh không bị mất, hãy sử dụng URL ảnh từ các nguồn bên ngoài (như link ảnh có sẵn) dán trực tiếp vào thay vì upload file từ máy tính.
 
-## 3. Thông Tin Quản Trị
-- **Trang chủ:** [https://thithpt-website.web.app](https://thithpt-website.web.app)
-- **Backend API:** [https://thithpt-backend.onrender.com](https://thithpt-backend.onrender.com)
-
-## 4. Hướng Dẫn Bảo Trì
-- **Cập nhật giao diện:** `npm run build` -> `npx firebase deploy`.
-- **Cập nhật Backend:** Push code lên GitHub (Render sẽ tự động redeploy).
-- **Quản lý Database:** Sử dụng trực tiếp Supabase Dashboard.
+## 🚀 Các bước tiếp theo
+1. **Tích hợp Supabase Storage:** Thay đổi API upload để đẩy file lên đám mây thay vì lưu local.
+2. **Auto-save:** Lưu nháp tiến trình làm bài của học sinh.
+3. **Phân quyền nâng cao:** Audit log cho hành động của Admin.
 
 ---
-**Trạng thái hệ thống:** 🟢 Hoạt động ổn định (Live)
-**Cập nhật cuối:** 10/05/2026
-**Người thực hiện:** Antigravity AI & Quản trị viên
+*Cập nhật lần cuối: 10/05/2026*

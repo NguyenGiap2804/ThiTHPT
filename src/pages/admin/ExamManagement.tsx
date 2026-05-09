@@ -83,6 +83,7 @@ export const ExamManagement: React.FC = () => {
   const [structureCounts, setStructureCounts] = useState({ part1: 12, part2: 4, part3: 6 });
   const [editStructureCounts, setEditStructureCounts] = useState({ part1: 12, part2: 4, part3: 6 });
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   // Form State
   const [newExam, setNewExam] = useState<ExamDraft>({
@@ -202,6 +203,7 @@ export const ExamManagement: React.FC = () => {
   const handleUpdateExam = async () => {
     if (!editingExam) return;
 
+    setIsUpdating(true);
     try {
       await updateExam({
         ...editingExam,
@@ -210,6 +212,11 @@ export const ExamManagement: React.FC = () => {
       } as Exam);
       setEditingExam(null);
       setEditForm({});
+      addNotification({
+        title: 'Thành công',
+        message: 'Đã cập nhật đề thi thành công!',
+        type: 'success'
+      });
     } catch (err) {
       console.error('Failed to update exam', err);
       addNotification({
@@ -217,6 +224,8 @@ export const ExamManagement: React.FC = () => {
         message: 'Không thể cập nhật đề thi.',
         type: 'error',
       });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -642,7 +651,7 @@ export const ExamManagement: React.FC = () => {
       return;
     }
 
-    const tabs: Array<typeof activeTab> = ['info', 'file', 'structure', 'answers'];
+    const tabs: Array<typeof activeTab> = ['info', 'file', 'structure', 'answers', 'explanations'];
     const nextIdx = tabs.indexOf(activeTab) + 1;
     const nextTab = tabs[nextIdx];
     if (nextTab) setActiveTab(nextTab);
@@ -1570,9 +1579,17 @@ export const ExamManagement: React.FC = () => {
                 </button>
                 <button
                   onClick={handleUpdateExam}
-                  className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                  disabled={isUpdating}
+                  className="px-6 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  Lưu thay đổi
+                  {isUpdating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    'Lưu thay đổi'
+                  )}
                 </button>
               </div>
             </motion.div>

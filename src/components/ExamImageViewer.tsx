@@ -57,6 +57,10 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
 
   useEffect(() => {
     setFailedImages(new Set());
+    setCurrentPage(0);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
   }, [images.join('|')]);
 
   return (
