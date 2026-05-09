@@ -1,0 +1,39 @@
+{
+  "name": "thpt-exam-server",
+  "version": "1.0.0",
+  "description": "Backend server for THPT Exam Prep System",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:check": "tsx src/check-data.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "express-rate-limit": "^8.5.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "mssql": "^12.5.2",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/mssql": "^9.1.11",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^22.14.0",
+    "@types/uuid": "^9.0.7",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2"
+  }
+}
