@@ -20,11 +20,15 @@ const getTransporter = () => {
     return null;
   }
 
+  const cleanPass = smtpPass?.replace(/\s+/g, "");
+
   return nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true, // Use SSL
     auth: {
       user: smtpUser!,
-      pass: smtpPass!,
+      pass: cleanPass!,
     },
     connectionTimeout: 10000,
     greetingTimeout: 10000,
