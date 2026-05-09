@@ -2,17 +2,17 @@ import { query, queryOne } from "./lib/database.js";
 
 async function checkData() {
   try {
-    const exams = await query('SELECT * FROM "Exams"');
-    console.log("EXAMS COUNT:", exams.length);
+    const exams = await query('SELECT count(*) as count FROM "Exams"');
+    console.log("EXAMS COUNT:", exams[0].count);
 
-    const questions = await query('SELECT * FROM "QuestionStructures"');
-    console.log("QUESTIONS COUNT:", questions.length);
+    const questions = await query('SELECT count(*) as count FROM "QuestionStructures"');
+    console.log("QUESTIONS COUNT:", questions[0].count);
 
-    const subjects = await query('SELECT * FROM "Subjects"');
-    console.log("SUBJECTS COUNT:", subjects.length);
+    const subjects = await query('SELECT count(*) as count FROM "Subjects"');
+    console.log("SUBJECTS COUNT:", subjects[0].count);
 
-    const admin = await queryOne('SELECT id, name, email, role FROM "Users" WHERE id = $1', ['admin-001']);
-    console.log("ADMIN SAMPLE:", admin);
+    const users = await query('SELECT id, email, role FROM "Users"');
+    console.log("USERS:", JSON.stringify(users, null, 2));
 
     process.exit(0);
   } catch (err) {

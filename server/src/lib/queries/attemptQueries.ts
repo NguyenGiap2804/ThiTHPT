@@ -123,15 +123,25 @@ export const createAttemptWithAnswers = async ({
         );
       });
 
-      await client.query(
-        `
-        INSERT INTO "AttemptAnswers" (
-          id, "attemptId", "questionId", "selectedOption", "trueFalseAnswers", "shortAnswer", "isCorrect", points, "createdAt"
-        )
-        VALUES ${values.join(", ")}
-        `,
-        params
-      );
+      try {
+        await client.query(
+          `
+          INSERT INTO "AttemptAnswers" (
+            id, "attemptId", "questionId", "selectedOption", "trueFalseAnswers", "shortAnswer", "isCorrect", points, "createdAt"
+          )
+          VALUES ${values.join(", ")}
+          `,
+          params
+        );
+      } catch (error: any) {
+        console.error("Failed to insert AttemptAnswers. Details:", {
+          error: error.message,
+          detail: error.detail,
+          constraint: error.constraint,
+          paramsSample: params.slice(0, 8)
+        });
+        throw error;
+      }
     }
 
     const result = await client.query(

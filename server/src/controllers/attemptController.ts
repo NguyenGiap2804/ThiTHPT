@@ -86,11 +86,16 @@ export const submitAttempt = async (
       message: "Exam attempted successfully",
       data: attempt,
     });
-  } catch (error) {
-    console.error("Submit attempt error:", error);
+  } catch (error: any) {
+    console.error("Submit attempt error details:", {
+      message: error.message,
+      detail: error.detail,
+      constraint: error.constraint,
+      stack: error.stack
+    });
     res.status(500).json({
       error: "Internal Server Error",
-      message: String(error),
+      message: error.message || String(error),
     });
   }
 };
@@ -190,4 +195,3 @@ export const getUserAttempts = async (
     });
   }
 };
-
