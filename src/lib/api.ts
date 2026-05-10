@@ -16,6 +16,61 @@ export class ApiError extends Error {
   }
 }
 
+const TRANSIENT_RETRY_DELAYS_MS = [350, 900, 1500];
+const NETWORK_ERROR_MESSAGE = 'Backend tạm thời không phản hồi. Vui lòng thử lại sau vài giây.';
+
+const delay = (ms: number) => new Promise(resolve => globalThis.setTimeout(resolve, ms));
+
+const isTransientStatus = (status: number) => [408, 429, 502, 503, 504].includes(status);
+
+const canRetryMethod = (method?: string) => {
+  const normalized = (method || 'GET').toUpperCase();
+  return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
+};
+
+async function fetchWithRetry(url: string, options: RequestInit, canRetry: boolean): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= TRANSIENT_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+
+      if (canRetry && isTransientStatus(response.status) && attempt < TRANSIENT_RETRY_DELAYS_MS.length) {
+        await response.arrayBuffer().catch(() => undefined);
+        await delay(TRANSIENT_RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error;
+
+      if (!canRetry || attempt >= TRANSIENT_RETRY_DELAYS_MS.length) {
+        throw new ApiError(NETWORK_ERROR_MESSAGE, 0, error);
+      }
+
+      await delay(TRANSIENT_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+
+  throw new ApiError(NETWORK_ERROR_MESSAGE, 0, lastError);
+}
+
+async function readResponseBody(response: Response): Promise<any> {
+  const contentType = response.headers.get('content-type');
+
+  if (contentType && contentType.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      return { message: 'Không thể đọc phản hồi JSON từ server.' };
+    }
+  }
+
+  const text = await response.text();
+  return { message: text || 'Server returned an error without a message' };
+}
+
 async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('thpt_token');
   const headers = {
@@ -24,26 +79,18 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetchWithRetry(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
-  });
+  }, canRetryMethod(options.method));
 
-  let responseData: any;
-  const contentType = response.headers.get('content-type');
-  
-  if (contentType && contentType.includes('application/json')) {
-    try {
-      responseData = await response.json();
-    } catch (e) {
-      responseData = { message: 'Failed to parse JSON response' };
-    }
-  } else {
-    const text = await response.text();
-    responseData = { message: text || 'Server returned an error without a message' };
-  }
+  const responseData = await readResponseBody(response);
 
   if (!response.ok) {
+    if (isTransientStatus(response.status)) {
+      throw new ApiError(NETWORK_ERROR_MESSAGE, response.status, responseData);
+    }
+
     const errorMessage = responseData.message || responseData.error || `Server Error (${response.status})`;
     throw new ApiError(errorMessage, response.status, responseData);
   }
@@ -162,17 +209,21 @@ export const uploadApi = {
     formData.append('file', file);
 
     const token = localStorage.getItem('thpt_token');
-    const response = await fetch(`${API_BASE_URL}/upload`, {
+    const response = await fetchWithRetry(`${API_BASE_URL}/upload`, {
       method: 'POST',
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
       body: formData,
-    });
+    }, true);
 
-    const responseData = await response.json();
+    const responseData = await readResponseBody(response);
 
     if (!response.ok) {
+      if (isTransientStatus(response.status)) {
+        throw new ApiError(NETWORK_ERROR_MESSAGE, response.status, responseData);
+      }
+
       throw new ApiError(responseData.message || responseData.error || 'Upload failed', response.status, responseData);
     }
 

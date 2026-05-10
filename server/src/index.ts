@@ -39,17 +39,26 @@ app.use(
   })
 );
 
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")
+const defaultCorsOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://thithpt-website.web.app",
+];
+
+const normalizeOrigin = (origin: string) => origin.replace(/\/+$/, "");
+
+const allowedOrigins = (process.env.CORS_ORIGIN || defaultCorsOrigins.join(","))
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin.trim()))
   .filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (!allowedOrigins.includes(origin)) {
-        return callback(new Error("Origin is not allowed by CORS"), false);
+      if (!allowedOrigins.includes(normalizeOrigin(origin))) {
+        return callback(null, false);
       }
       return callback(null, true);
     },

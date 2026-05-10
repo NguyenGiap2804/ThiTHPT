@@ -28,6 +28,43 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const normalizeNotificationText = (value: unknown) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+
+const isDuplicateNotification = (
+  existing: Notification,
+  next: Omit<Notification, 'id' | 'timestamp' | 'read'>,
+  now: number
+) => {
+  if (existing.read || existing.type !== next.type || existing.title !== next.title) {
+    return false;
+  }
+
+  const itemTime = new Date(existing.timestamp).getTime();
+  if (!Number.isFinite(itemTime) || now - itemTime >= 3500) {
+    return false;
+  }
+
+  const currentMessage = normalizeNotificationText(existing.message);
+  const nextMessage = normalizeNotificationText(next.message);
+
+  return (
+    currentMessage === nextMessage ||
+    (currentMessage.length > 0 && nextMessage.length > 0 && (
+      currentMessage.includes(nextMessage) ||
+      nextMessage.includes(currentMessage)
+    ))
+  );
+};
+
+const shouldKeepCachedData = (error: unknown) =>
+  error instanceof ApiError && (error.status === 0 || [408, 429, 502, 503, 504].includes(error.status));
+
 const readStoredUser = (): User | null => {
   try {
     const saved = localStorage.getItem('thpt_user');
@@ -64,17 +101,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       read: false,
     };
     setNotifications(prev => {
-      const hasRecentDuplicate = prev.some(item => {
-        const itemTime = new Date(item.timestamp).getTime();
-        return (
-          !item.read &&
-          item.title === notif.title &&
-          item.message === notif.message &&
-          item.type === notif.type &&
-          Number.isFinite(itemTime) &&
-          now - itemTime < 3500
-        );
-      });
+      const hasRecentDuplicate = prev.some(item => isDuplicateNotification(item, notif, now));
 
       return hasRecentDuplicate ? prev : [newNotif, ...prev];
     });
@@ -136,7 +163,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .then(setExams)
       .catch((err) => {
         console.error('Failed to fetch exams', err);
-        setExams([]);
+        if (!shouldKeepCachedData(err)) {
+          setExams([]);
+        }
       });
   }, [currentUser?.role]);
 
@@ -154,14 +183,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .then(setAttempts)
       .catch((err) => {
         console.error('Failed to fetch attempts', err);
-        setAttempts([]);
+        if (!shouldKeepCachedData(err)) {
+          setAttempts([]);
+        }
       });
 
     notificationApi.getAll()
       .then(setNotifications)
       .catch((err) => {
         console.error('Failed to fetch notifications', err);
-        setNotifications([]);
+        if (!shouldKeepCachedData(err)) {
+          setNotifications([]);
+        }
       });
   }, [currentUser]);
 

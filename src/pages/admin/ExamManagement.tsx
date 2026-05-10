@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useApp } from '../../context/AppContext';
-import { examApi, uploadApi } from '../../lib/api';
+import { ApiError, examApi, uploadApi } from '../../lib/api';
 import { 
   ArrowDown,
   ArrowUp,
@@ -77,6 +77,29 @@ const renderPdfToImageFiles = async (
   }
 
   return renderedFiles;
+};
+
+const getUploadErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof ApiError) {
+    if (error.status === 0) {
+      return 'Backend Render đang phản hồi không ổn định. Hệ thống đã thử lại nhiều lần, vui lòng bấm tải lại sau vài giây.';
+    }
+
+    if (
+      error.message.includes('Production uploads must use Supabase Storage') ||
+      error.message.includes('Supabase Storage is not configured')
+    ) {
+      return 'Backend Render chưa cấu hình Supabase Storage. Cần đặt UPLOAD_STORAGE=supabase và các biến SUPABASE_STORAGE_* trên Render trước khi upload.';
+    }
+
+    return error.message || fallback;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
 };
 
 export const ExamManagement: React.FC = () => {
@@ -431,7 +454,7 @@ export const ExamManagement: React.FC = () => {
             }));
           }
         } catch (err) {
-          addNotification({ title: 'Lỗi', message: 'Không thể tải ảnh dán lên.', type: 'error' });
+          addNotification({ title: 'Lỗi', message: getUploadErrorMessage(err, 'Không thể tải ảnh dán lên.'), type: 'error' });
         }
       }
     }
@@ -466,7 +489,7 @@ export const ExamManagement: React.FC = () => {
       console.error('PDF upload/render failed', err);
       addNotification({
         title: 'Lỗi',
-        message: 'Không thể xử lý PDF. Vui lòng kiểm tra file hoặc thử upload ảnh trang đề.',
+        message: getUploadErrorMessage(err, 'Không thể xử lý PDF. Vui lòng kiểm tra file hoặc thử upload ảnh trang đề.'),
         type: 'error'
       });
     } finally {
@@ -497,7 +520,7 @@ export const ExamManagement: React.FC = () => {
     } catch (err) {
       addNotification({
         title: 'Lỗi',
-        message: 'Không thể tải lên một số ảnh',
+        message: getUploadErrorMessage(err, 'Không thể tải lên một số ảnh'),
         type: 'error'
       });
     } finally {
@@ -537,7 +560,7 @@ export const ExamManagement: React.FC = () => {
       console.error('Edit PDF upload/render failed', err);
       addNotification({
         title: 'Lỗi',
-        message: 'Không thể xử lý PDF mới.',
+        message: getUploadErrorMessage(err, 'Không thể xử lý PDF mới.'),
         type: 'error'
       });
     } finally {
@@ -568,7 +591,7 @@ export const ExamManagement: React.FC = () => {
     } catch (err) {
       addNotification({
         title: 'Lỗi',
-        message: 'Không thể tải lên một số ảnh.',
+        message: getUploadErrorMessage(err, 'Không thể tải lên một số ảnh.'),
         type: 'error'
       });
     } finally {
