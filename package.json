@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test:pdf": "tsx scripts/verify-pdf-editor.ts"
+    "test:pdf": "tsx scripts/verify-pdf-editor.ts",
+    "test:pdf-state": "tsx scripts/verify-pdf-editor-state.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

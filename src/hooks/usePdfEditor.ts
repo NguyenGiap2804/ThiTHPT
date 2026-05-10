@@ -1,44 +1,39 @@
 import { useCallback, useMemo, useState } from 'react';
+import {
+  createEmptyPdfPageSelection,
+  initializePdfPageSelection,
+  makePdfPageSet,
+  toSortedPdfPageNumbers,
+} from '../services/pdf-page-selection.service';
 import { buildEditedPdfFile, getFinalPdfName } from '../services/pdf.service';
 
-const makePageSet = (pageCount: number): Set<number> =>
-  new Set<number>(Array.from({ length: pageCount }, (_, index) => index + 1));
-
-const toSortedPageNumbers = (pages: Set<number>) => {
-  const pageNumbers: number[] = [];
-  pages.forEach(pageNumber => pageNumbers.push(pageNumber));
-  return pageNumbers.sort((a, b) => a - b);
-};
-
 export function usePdfEditor() {
-  const [totalPages, setTotalPages] = useState(0);
-  const [keptPages, setKeptPages] = useState<Set<number>>(() => new Set<number>());
+  const [selection, setSelection] = useState(createEmptyPdfPageSelection);
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { totalPages, keptPages } = selection;
   const keptCount = keptPages.size;
 
   const selectedPageIndexes = useMemo(
-    () => toSortedPageNumbers(keptPages).map(pageNumber => pageNumber - 1),
+    () => toSortedPdfPageNumbers(keptPages).map(pageNumber => pageNumber - 1),
     [keptPages],
   );
 
   const setPageCount = useCallback((pageCount: number) => {
-    setTotalPages(pageCount);
-    setKeptPages(makePageSet(pageCount));
+    setSelection(prev => initializePdfPageSelection(prev, pageCount));
     setError(null);
   }, []);
 
   const reset = useCallback(() => {
-    setTotalPages(0);
-    setKeptPages(new Set<number>());
+    setSelection(createEmptyPdfPageSelection());
     setIsBuilding(false);
     setError(null);
   }, []);
 
   const togglePage = useCallback((pageNumber: number, keep?: boolean) => {
-    setKeptPages(prev => {
-      const next = new Set<number>(prev);
+    setSelection(prev => {
+      const next = new Set<number>(prev.keptPages);
       const shouldKeep = keep ?? !next.has(pageNumber);
 
       if (shouldKeep) {
@@ -47,29 +42,44 @@ export function usePdfEditor() {
         next.delete(pageNumber);
       }
 
-      return next;
+      return {
+        ...prev,
+        keptPages: next,
+      };
     });
     setError(null);
   }, []);
 
   const selectAll = useCallback(() => {
-    setKeptPages(makePageSet(totalPages));
+    setSelection(prev => ({
+      ...prev,
+      keptPages: makePdfPageSet(prev.totalPages),
+      initialized: true,
+    }));
     setError(null);
-  }, [totalPages]);
+  }, []);
 
   const removeAll = useCallback(() => {
-    setKeptPages(new Set<number>());
+    setSelection(prev => ({
+      ...prev,
+      keptPages: new Set<number>(),
+      initialized: true,
+    }));
     setError('Cần giữ ít nhất 1 trang trước khi lưu.');
   }, []);
 
   const keepOnlySelected = useCallback(() => {
-    setKeptPages(prev => {
-      const normalized = toSortedPageNumbers(prev)
-        .filter(pageNumber => pageNumber >= 1 && pageNumber <= totalPages);
-      return new Set<number>(normalized);
+    setSelection(prev => {
+      const normalized = toSortedPdfPageNumbers(prev.keptPages)
+        .filter(pageNumber => pageNumber >= 1 && pageNumber <= prev.totalPages);
+      return {
+        ...prev,
+        keptPages: new Set<number>(normalized),
+        initialized: true,
+      };
     });
     setError(keptPages.size === 0 ? 'Cần giữ ít nhất 1 trang trước khi lưu.' : null);
-  }, [keptPages.size, totalPages]);
+  }, [keptPages.size]);
 
   const buildFinalPdf = useCallback(async (file: File) => {
     if (selectedPageIndexes.length === 0) {
