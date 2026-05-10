@@ -44,6 +44,7 @@ export interface Exam {
   totalQuestions?: number;
   status: 'draft' | 'published' | 'hidden';
   attemptCount?: number;
+  isFeatured?: boolean;
   stats?: {
     attemptCount: number;
     averageScore: number;

@@ -17,9 +17,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatScore } from '../lib/utils';
+import { getExamCodeBadgeLabel } from '../services/exam-card.service';
+import type { Exam } from '../types';
 
 interface ExamCardProps {
-  exam: any;
+  exam: Exam;
   delay?: number;
 }
 
@@ -28,6 +30,7 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, delay = 0 }) => {
   const subjectName = useMemo(() => {
     return SUBJECTS.find(s => s.id === exam.subjectId)?.name || exam.subjectId;
   }, [exam.subjectId]);
+  const examCodeBadgeLabel = useMemo(() => getExamCodeBadgeLabel(exam.examCode), [exam.examCode]);
 
   return (
     <motion.div
@@ -39,7 +42,7 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, delay = 0 }) => {
     >
       <Link 
         to={`/exam/${exam.id}`}
-        className="group block bg-white rounded-2xl p-5 border border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all relative h-full"
+        className="group flex h-full flex-col bg-white rounded-2xl p-5 border border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all relative"
       >
         <div className="flex items-center justify-between mb-3">
           <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[9px] font-black uppercase tracking-wider">
@@ -48,12 +51,20 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, delay = 0 }) => {
           {exam.isFeatured && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
         </div>
 
+        {examCodeBadgeLabel && (
+          <div className="mb-2">
+            <span className="inline-flex max-w-full items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase text-blue-700">
+              {examCodeBadgeLabel}
+            </span>
+          </div>
+        )}
+
         <h3 className="text-sm font-black text-slate-800 mb-4 group-hover:text-blue-600 transition-colors line-clamp-2 min-h-[2.5rem]">
           {exam.title}
         </h3>
 
-        <div className="flex items-center justify-between mt-auto text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-          <div className="flex items-center gap-3">
+        <div className="flex items-end justify-between gap-3 mt-auto text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3 text-blue-400" />
               {exam.durationMinutes}p
@@ -68,7 +79,7 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, delay = 0 }) => {
             </span>
           </div>
           
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group-hover:bg-blue-700 shadow-lg shadow-blue-200/50">
+          <div className="flex shrink-0 items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group-hover:bg-blue-700 shadow-lg shadow-blue-200/50">
             <span>Làm bài</span>
             <ChevronRight className="w-3 h-3" />
           </div>
