@@ -247,18 +247,13 @@ export const ExamManagement: React.FC = () => {
       durationMinutes: Number(editForm.durationMinutes || editingExam.durationMinutes),
     } as Exam;
 
-    const previousEditingExam = editingExam;
-    const previousEditForm = editForm;
-
     setIsUpdating(true);
-    setEditingExam(null);
-    setEditForm({});
     try {
       await updateExam(nextExam);
+      setEditingExam(null);
+      setEditForm({});
     } catch (err) {
       console.error('Failed to update exam', err);
-      setEditingExam(previousEditingExam);
-      setEditForm(previousEditForm);
     } finally {
       setIsUpdating(false);
     }
@@ -1336,7 +1331,9 @@ export const ExamManagement: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setEditingExam(null)}
+              onClick={() => {
+                if (!isUpdating) setEditingExam(null);
+              }}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
             <motion.div
@@ -1350,7 +1347,11 @@ export const ExamManagement: React.FC = () => {
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sửa đầy đủ đề thi</h2>
                   <p className="mt-1 text-sm font-semibold text-slate-400">Cập nhật thông tin, file đề, cấu trúc, đáp án và lời giải trong một luồng.</p>
                 </div>
-                <button onClick={() => setEditingExam(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                <button
+                  onClick={() => setEditingExam(null)}
+                  disabled={isUpdating}
+                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
                   <X className="w-6 h-6 text-slate-400" />
                 </button>
               </div>
@@ -1656,7 +1657,8 @@ export const ExamManagement: React.FC = () => {
               <div className="shrink-0 border-t border-slate-100 bg-slate-50/90 p-5 flex justify-end gap-3">
                 <button
                   onClick={() => setEditingExam(null)}
-                  className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+                  disabled={isUpdating}
+                  className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hủy
                 </button>
