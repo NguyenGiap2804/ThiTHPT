@@ -19,7 +19,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface ExamPdfViewerProps {
-  pdfUrl: string;
+  pdfUrl: string | File | null;
 }
 
 export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
@@ -216,8 +216,16 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
                 <div className="max-w-md">
                   <h3 className="text-xl font-bold text-white">Không thể hiển thị đề thi</h3>
                   <p className="text-sm mt-3 text-slate-400 leading-relaxed">
-                    Trình duyệt không thể lấy file từ Supabase (Lỗi CORS). 
-                    Hãy đảm bảo bạn đã cấu hình CORS trên Supabase cho domain <strong>{window.location.hostname}</strong>.
+                    {typeof pdfUrl === 'string' && pdfUrl.startsWith('http') ? (
+                      <>
+                        Trình duyệt không thể lấy file từ server (Lỗi CORS hoặc kết nối). 
+                        Hãy đảm bảo bạn đã cấu hình CORS trên Supabase cho domain <strong>{window.location.hostname}</strong>.
+                      </>
+                    ) : (
+                      <>
+                        Có lỗi xảy ra khi xử lý file PDF này. Vui lòng thử chọn lại file hoặc kiểm tra định dạng file.
+                      </>
+                    )}
                   </p>
                   <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
                     <button 
@@ -226,15 +234,17 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
                     >
                       Thử lại
                     </button>
-                    <a 
-                      href={pdfUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all text-sm flex items-center justify-center gap-2"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Mở trực tiếp trong tab mới
-                    </a>
+                    {typeof pdfUrl === 'string' && (
+                      <a 
+                        href={pdfUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all text-sm flex items-center justify-center gap-2"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Mở trực tiếp trong tab mới
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

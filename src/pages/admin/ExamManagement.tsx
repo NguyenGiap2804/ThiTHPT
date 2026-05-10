@@ -936,8 +936,8 @@ export const ExamManagement: React.FC = () => {
                     </div>
 
                     <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
-                      {(localPreviewUrl || newExam.pdfUrl) ? (
-                        <ExamPdfViewer pdfUrl={localPreviewUrl || getImageUrl(newExam.pdfUrl)} />
+                      {(selectedPdfFile || newExam.pdfUrl) ? (
+                        <ExamPdfViewer pdfUrl={selectedPdfFile || (newExam.pdfUrl ? getImageUrl(newExam.pdfUrl) : null)} />
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
                           <FileText className="w-16 h-16 opacity-20" />
@@ -1333,9 +1333,9 @@ export const ExamManagement: React.FC = () => {
                     </div>
 
                     <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
-                      {(editLocalPreviewUrl || editForm.pdfUrl || (editForm.imagePages && editForm.imagePages.length > 0)) ? (
-                        (editLocalPreviewUrl || editForm.pdfUrl) ? (
-                          <ExamPdfViewer pdfUrl={editLocalPreviewUrl || getImageUrl(editForm.pdfUrl)} />
+                      {(editSelectedPdfFile || editForm.pdfUrl || (editForm.imagePages && editForm.imagePages.length > 0)) ? (
+                        (editSelectedPdfFile || editForm.pdfUrl) ? (
+                          <ExamPdfViewer pdfUrl={editSelectedPdfFile || (editForm.pdfUrl ? getImageUrl(editForm.pdfUrl) : null)} />
                         ) : (
                           <div className="flex flex-col items-center justify-center h-full gap-4 text-amber-600 p-8 text-center bg-amber-50">
                             <AlertTriangle className="w-12 h-12" />
