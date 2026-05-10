@@ -37,10 +37,11 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
   }
 
   const filename = buildStoredFilename(req.file.originalname);
+  const folder = req.body.folder || ""; // Allow folder specification
   let storedFile: Awaited<ReturnType<typeof saveUploadedFile>>;
 
   try {
-    storedFile = await saveUploadedFile(req.file, filename);
+    storedFile = await saveUploadedFile(req.file, filename, folder);
   } catch (error) {
     console.error("Upload storage failed:", error);
     res.status(500).json({

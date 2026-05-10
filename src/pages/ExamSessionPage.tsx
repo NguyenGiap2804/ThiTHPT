@@ -5,8 +5,9 @@ import { AlertTriangle, ChevronLeft, Clock, Columns, Layout, Send } from 'lucide
 import { useApp } from '../context/AppContext';
 import { AnswerSheet } from '../components/AnswerSheet';
 import { ExamImageViewer } from '../components/ExamImageViewer';
+import { ExamPdfViewer } from '../components/ExamPdfViewer';
 import { AttemptAnswer } from '../types';
-import { cn, formatTime } from '../lib/utils';
+import { cn, formatTime, getImageUrl } from '../lib/utils';
 
 export const ExamSessionPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -181,11 +182,13 @@ export const ExamSessionPage: React.FC = () => {
             : "w-full h-[800px]"
         )}>
           <div className="h-full bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-xl shadow-slate-200/50 relative">
-            {(exam.imagePages || []).length > 0 ? (
+            {exam.pdfUrl ? (
+              <ExamPdfViewer pdfUrl={getImageUrl(exam.pdfUrl)} />
+            ) : (exam.imagePages || []).length > 0 ? (
               <ExamImageViewer images={exam.imagePages || []} />
             ) : (
               <div className="h-full flex items-center justify-center text-slate-500 font-bold">
-                Đề thi chưa có ảnh trang đề.
+                Đề thi chưa có nội dung hiển thị (PDF hoặc ảnh).
               </div>
             )}
           </div>

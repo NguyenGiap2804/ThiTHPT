@@ -204,9 +204,12 @@ export const adminApi = {
  * Upload APIs
  */
 export const uploadApi = {
-  file: async (file: File): Promise<{ url: string; filename: string; mimetype: string; size: number; storageProvider: string; objectKey?: string }> => {
+  file: async (file: File, folder?: string): Promise<{ url: string; filename: string; mimetype: string; size: number; storageProvider: string; objectKey?: string }> => {
     const formData = new FormData();
     formData.append('file', file);
+    if (folder) {
+      formData.append('folder', folder);
+    }
 
     const token = localStorage.getItem('thpt_token');
     const response = await fetchWithRetry(`${API_BASE_URL}/upload`, {

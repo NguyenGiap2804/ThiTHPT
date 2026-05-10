@@ -13,7 +13,7 @@ export const getAllExams = async (filters?: {
   status?: string;
 }) => {
   let text = `
-    SELECT e.id, e.title, e."subjectId", e."examCode", e."durationMinutes", e.status, e."totalQuestions", e."createdAt", e."updatedAt",
+    SELECT e.id, e.title, e."subjectId", e."examCode", e."durationMinutes", e.status, e."totalQuestions", e."pdfUrl", e."createdAt", e."updatedAt",
            COALESCE(s."attemptCount", 0) as "attemptCount"
     FROM "Exams" e
     LEFT JOIN (
@@ -47,7 +47,7 @@ export const getAllExams = async (filters?: {
  */
 export const findExamById = async (id: string) => {
   const text = `
-    SELECT id, "subjectId", title, "examCode", "durationMinutes", status, "totalQuestions", "createdBy", "createdAt", "updatedAt"
+    SELECT id, "subjectId", title, "examCode", "durationMinutes", status, "totalQuestions", "pdfUrl", "createdBy", "createdAt", "updatedAt"
     FROM "Exams"
     WHERE id = $1
   `;
@@ -69,6 +69,7 @@ export const createExamWithDetails = async (exam: any) => {
     answerKey = {},
     explanations = {},
     status = "draft",
+    pdfUrl,
     createdBy
   } = exam;
 
@@ -76,10 +77,10 @@ export const createExamWithDetails = async (exam: any) => {
     // 1. Insert Exam record
     await client.query(`
       INSERT INTO "Exams" (
-        id, "subjectId", title, "examCode", "durationMinutes", status, "totalQuestions", "createdBy", "createdAt", "updatedAt"
+        id, "subjectId", title, "examCode", "durationMinutes", status, "totalQuestions", "pdfUrl", "createdBy", "createdAt", "updatedAt"
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-    `, [id, subjectId, title, examCode, durationMinutes, status, questionStructure.length, createdBy]);
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+    `, [id, subjectId, title, examCode, durationMinutes, status, questionStructure.length, pdfUrl, createdBy]);
 
     // 2. Insert Image Pages
     if (imagePages && imagePages.length > 0) {
@@ -137,7 +138,7 @@ export const createExamWithDetails = async (exam: any) => {
  */
 export const getExamWithDetails = async (id: string, options: GetExamDetailsOptions = {}) => {
   const examText = `
-    SELECT id, "subjectId", title, "examCode", "durationMinutes", status, "totalQuestions", "createdAt", "updatedAt"
+    SELECT id, "subjectId", title, "examCode", "durationMinutes", status, "totalQuestions", "pdfUrl", "createdAt", "updatedAt"
     FROM "Exams"
     WHERE id = $1
   `;
@@ -235,7 +236,7 @@ export const updateExamMetadata = async (id: string, updates: any) => {
     const params: any[] = [];
     let paramCount = 1;
 
-    const allowedFields = ["subjectId", "title", "examCode", "durationMinutes", "status"];
+    const allowedFields = ["subjectId", "title", "examCode", "durationMinutes", "status", "pdfUrl"];
 
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {

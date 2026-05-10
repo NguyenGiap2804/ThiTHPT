@@ -36,7 +36,8 @@ export interface Exam {
   title: string;
   examCode: string;
   durationMinutes: number;
-  imagePages?: string[]; // URLs to images of the exam pages
+  pdfUrl?: string; // Main PDF file URL
+  imagePages?: string[]; // Legacy: URLs to images of the exam pages
   questionStructure?: QuestionStructure[];
   answerKey?: Record<string, any>; // Admin/result-only: questionId -> correct answer
   explanations?: Record<string, string>; // Admin/result-only: questionId -> explanation text

@@ -20,64 +20,21 @@ import {
   ListChecks,
   MessageSquare,
   Save,
-  CheckCircle2,
-  AlertCircle,
   ChevronRight,
-  X
+  X,
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, getImageUrl } from '../../lib/utils';
 import { Exam } from '../../types';
+import { ExamPdfViewer } from '../../components/ExamPdfViewer';
 
 type ExamDraft = Partial<Exam> & {
   pdfUrl?: string;
 };
 
-const loadPdfJs = async () => {
-  const pdfjsLib = await import('pdfjs-dist');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-  return pdfjsLib;
-};
-
-const renderPdfToImageFiles = async (
-  file: File,
-  onProgress?: (page: number, total: number) => void
-): Promise<File[]> => {
-  const pdfjsLib = await loadPdfJs();
-  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-  const renderedFiles: File[] = [];
-  const safeBaseName = file.name.replace(/\.pdf$/i, '').replace(/[^\w.-]+/g, '-');
-
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    onProgress?.(pageNumber, pdf.numPages);
-    const page = await pdf.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: 1.8 });
-    const canvas = document.createElement('canvas');
-    const canvasContext = canvas.getContext('2d');
-
-    if (!canvasContext) {
-      throw new Error('Không thể tạo canvas để đọc PDF.');
-    }
-
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    await page.render({ canvas, canvasContext, viewport }).promise;
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((value) => {
-        if (value) {
-          resolve(value);
-        } else {
-          reject(new Error('Không thể xuất trang PDF thành ảnh.'));
-        }
-      }, 'image/png', 0.92);
-    });
-
-    renderedFiles.push(new File([blob], `${safeBaseName}-page-${pageNumber}.png`, { type: 'image/png' }));
-  }
-
-  return renderedFiles;
-};
+// Remove renderPdfToImageFiles function as it's no longer needed for PDF-only architecture.
 
 const getUploadErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof ApiError) {
@@ -136,10 +93,8 @@ export const ExamManagement: React.FC = () => {
   const [importJsonValue, setImportJsonValue] = useState('');
   const [importTarget, setImportTarget] = useState<'new' | 'edit'>('new');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
-  const editImageInputRef = useRef<HTMLInputElement>(null);
 
   const filteredExams = (exams || []).filter(e => 
     (
@@ -208,6 +163,7 @@ export const ExamManagement: React.FC = () => {
       subjectId: exam.subjectId,
       durationMinutes: exam.durationMinutes,
       status: exam.status,
+      pdfUrl: exam.pdfUrl,
       imagePages: exam.imagePages || [],
       questionStructure: exam.questionStructure || [],
       answerKey: exam.answerKey || {},
@@ -268,8 +224,8 @@ export const ExamManagement: React.FC = () => {
     if (!newExam.subjectId) errors.push('Chưa chọn môn học');
 
     // 2. File/Images
-    if ((newExam.imagePages || []).length === 0) {
-      errors.push('Vui lòng tải PDF hoặc ảnh trang đề (Phần "File đề thi")');
+    if (!newExam.pdfUrl && (!newExam.imagePages || newExam.imagePages.length === 0)) {
+      errors.push('Vui lòng tải file đề PDF (Phần "File đề thi")');
     }
 
     // 3. Question Structure & Answers
@@ -427,7 +383,7 @@ export const ExamManagement: React.FC = () => {
 
         try {
           addNotification({ title: 'Đang tải...', message: 'Đang xử lý ảnh từ bộ nhớ tạm...', type: 'info' });
-          const upload = await uploadApi.file(file);
+          const upload = await uploadApi.file(file, 'explanations');
           const imageUrl = getImageUrl(upload.url);
           const markdownImg = `\n![Giải thích](${imageUrl})\n`;
           
@@ -459,32 +415,25 @@ export const ExamManagement: React.FC = () => {
     if (!file) return;
 
     setIsUploading(true);
-    setUploadStatus('Đang tải PDF gốc...');
+    setUploadStatus('Đang tải PDF lên server...');
     try {
-      const pdfUpload = await uploadApi.file(file);
-      setUploadStatus('Đang chuyển PDF thành ảnh trang đề...');
-      const pageFiles = await renderPdfToImageFiles(file, (page, total) => {
-        setUploadStatus(`Đang đọc trang ${page}/${total}...`);
-      });
-
-      setUploadStatus(`Đang tải ${pageFiles.length} ảnh trang đề...`);
-      const uploadedPages = await Promise.all(pageFiles.map(pageFile => uploadApi.file(pageFile)));
-
+      const pdfUpload = await uploadApi.file(file, 'pdfs');
+      
       setNewExam(prev => ({
         ...prev,
-        pdfUrl: pdfUpload.url,
-        imagePages: [...(prev.imagePages || []), ...uploadedPages.map(page => page.url)],
+        pdfUrl: pdfUpload.url
       }));
+
       addNotification({
         title: 'Thành công',
-        message: `Đã tải PDF và tạo ${uploadedPages.length} ảnh trang đề để xem trước.`,
+        message: 'Đã tải PDF thành công. Bạn có thể xem bản xem trước bên dưới.',
         type: 'success'
       });
     } catch (err) {
-      console.error('PDF upload/render failed', err);
+      console.error('PDF upload failed', err);
       addNotification({
         title: 'Lỗi',
-        message: getUploadErrorMessage(err, 'Không thể xử lý PDF. Vui lòng kiểm tra file hoặc thử upload ảnh trang đề.'),
+        message: getUploadErrorMessage(err, 'Không thể tải file PDF. Vui lòng thử lại.'),
         type: 'error'
       });
     } finally {
@@ -494,68 +443,30 @@ export const ExamManagement: React.FC = () => {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsUploading(true);
-    setUploadStatus(`Đang tải ${files.length} ảnh trang đề...`);
-    try {
-      const imageFiles = Array.from(files) as File[];
-      const uploadedPages = await Promise.all(imageFiles.map(file => uploadApi.file(file)));
-      setNewExam(prev => ({
-        ...prev,
-        imagePages: [...(prev.imagePages || []), ...uploadedPages.map(page => page.url)]
-      }));
-      addNotification({
-        title: 'Thành công',
-        message: `Đã tải lên ${uploadedPages.length} ảnh trang đề thi.`,
-        type: 'success'
-      });
-    } catch (err) {
-      addNotification({
-        title: 'Lỗi',
-        message: getUploadErrorMessage(err, 'Không thể tải lên một số ảnh'),
-        type: 'error'
-      });
-    } finally {
-      setIsUploading(false);
-      setUploadStatus('');
-      if (imageInputRef.current) imageInputRef.current.value = '';
-    }
-  };
-
   const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
-    setUploadStatus('Đang tải PDF gốc...');
+    setUploadStatus('Đang tải PDF mới...');
     try {
-      const pdfUpload = await uploadApi.file(file);
-      setUploadStatus('Đang chuyển PDF thành ảnh trang đề...');
-      const pageFiles = await renderPdfToImageFiles(file, (page, total) => {
-        setUploadStatus(`Đang đọc trang ${page}/${total}...`);
-      });
-
-      setUploadStatus(`Đang tải ${pageFiles.length} ảnh trang đề...`);
-      const uploadedPages = await Promise.all(pageFiles.map(pageFile => uploadApi.file(pageFile)));
-
+      const pdfUpload = await uploadApi.file(file, 'pdfs');
+      
       setEditForm(prev => ({
         ...prev,
-        pdfUrl: pdfUpload.url,
-        imagePages: uploadedPages.map(page => page.url),
+        pdfUrl: pdfUpload.url
       }));
+
       addNotification({
         title: 'Thành công',
-        message: `Đã thay file đề và tạo ${uploadedPages.length} ảnh trang đề.`,
+        message: 'Đã thay thế file đề thành công.',
         type: 'success'
       });
     } catch (err) {
-      console.error('Edit PDF upload/render failed', err);
+      console.error('Edit PDF upload failed', err);
       addNotification({
         title: 'Lỗi',
-        message: getUploadErrorMessage(err, 'Không thể xử lý PDF mới.'),
+        message: getUploadErrorMessage(err, 'Không thể tải file PDF mới.'),
         type: 'error'
       });
     } finally {
@@ -565,36 +476,7 @@ export const ExamManagement: React.FC = () => {
     }
   };
 
-  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
 
-    setIsUploading(true);
-    setUploadStatus(`Đang tải ${files.length} ảnh trang đề...`);
-    try {
-      const imageFiles = Array.from(files) as File[];
-      const uploadedPages = await Promise.all(imageFiles.map(file => uploadApi.file(file)));
-      setEditForm(prev => ({
-        ...prev,
-        imagePages: [...(prev.imagePages || []), ...uploadedPages.map(page => page.url)]
-      }));
-      addNotification({
-        title: 'Thành công',
-        message: `Đã thêm ${uploadedPages.length} ảnh trang đề.`,
-        type: 'success'
-      });
-    } catch (err) {
-      addNotification({
-        title: 'Lỗi',
-        message: getUploadErrorMessage(err, 'Không thể tải lên một số ảnh.'),
-        type: 'error'
-      });
-    } finally {
-      setIsUploading(false);
-      setUploadStatus('');
-      if (editImageInputRef.current) editImageInputRef.current.value = '';
-    }
-  };
 
   const generateStructure = (part1: number, part2: number, part3: number) => {
     setNewExam(prev => ({ ...prev, questionStructure: buildQuestionStructure({ part1, part2, part3 }) }));
@@ -673,29 +555,9 @@ export const ExamManagement: React.FC = () => {
     setEditForm(prev => ({ ...prev, imagePages: prev.imagePages?.filter((_, i) => i !== index) || [] }));
   };
 
-  const movePage = (index: number, direction: -1 | 1) => {
-    setNewExam(prev => {
-      const pages = [...(prev.imagePages || [])];
-      const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= pages.length) return prev;
-      [pages[index], pages[nextIndex]] = [pages[nextIndex], pages[index]];
-      return { ...prev, imagePages: pages };
-    });
-  };
-
-  const moveEditPage = (index: number, direction: -1 | 1) => {
-    setEditForm(prev => {
-      const pages = [...(prev.imagePages || [])];
-      const nextIndex = index + direction;
-      if (nextIndex < 0 || nextIndex >= pages.length) return prev;
-      [pages[index], pages[nextIndex]] = [pages[nextIndex], pages[index]];
-      return { ...prev, imagePages: pages };
-    });
-  };
-
   const handleNextTab = () => {
-    if (activeTab === 'file' && (newExam.imagePages || []).length === 0) {
-      alert('Vui lòng tải PDF hoặc thêm ít nhất một ảnh trang đề trước khi tiếp tục.');
+    if (activeTab === 'file' && !newExam.pdfUrl && (newExam.imagePages || []).length === 0) {
+      alert('Vui lòng tải file PDF đề thi trước khi tiếp tục.');
       return;
     }
 
@@ -780,7 +642,19 @@ export const ExamManagement: React.FC = () => {
                         <FileText className="w-6 h-6" />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{exam.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{exam.title}</p>
+                          {exam.imagePages?.some(url => url.startsWith('/uploads/')) && (
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-600 rounded-md border border-amber-100 group/warn relative">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span className="text-[10px] font-black uppercase">Local Storage</span>
+                              
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover/warn:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
+                                Đề thi này đang dùng bộ nhớ tạm Render. Ảnh sẽ bị mất sau khi deploy. Vui lòng Sửa đề và upload lại PDF để lưu vĩnh viễn trên Supabase.
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500 font-medium">Mã đề: {exam.examCode} • {exam.durationMinutes} phút</p>
                       </div>
                     </div>
@@ -998,95 +872,16 @@ export const ExamManagement: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                      <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4 block">Ảnh trang đề ({newExam.imagePages?.length || 0} trang)</label>
-                      <div className="flex gap-2 mb-4">
-                        <input 
-                          type="text"
-                          placeholder="Hoặc dán URL ảnh..."
-                          className="flex-1 px-4 py-3 bg-white border-slate-200 rounded-xl outline-none font-medium"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const url = (e.target as HTMLInputElement).value;
-                              if (url) {
-                                setNewExam(prev => ({ ...prev, imagePages: [...(prev.imagePages || []), url] }));
-                                (e.target as HTMLInputElement).value = '';
-                              }
-                            }
-                          }}
-                        />
-                        <input 
-                          type="file" 
-                          ref={imageInputRef} 
-                          className="hidden" 
-                          accept="image/*"
-                          multiple
-                          onChange={handleImageUpload}
-                        />
-                        <button 
-                          onClick={() => imageInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          {isUploading ? (
-                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Plus className="w-4 h-4" />
-                          )}
-                          Tải ảnh
-                        </button>
-                      </div>
-                      {(newExam.imagePages?.length || 0) > 0 && (
-                        <div className="mb-4 flex justify-end">
-                          <button
-                            onClick={() => setNewExam(prev => ({ ...prev, imagePages: [] }))}
-                            className="text-sm font-bold text-rose-600 hover:text-rose-700"
-                          >
-                            Xóa tất cả trang
-                          </button>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {newExam.imagePages?.map((img, idx) => (
-                          <div key={`${img}-${idx}`} className="relative group aspect-[3/4] bg-white rounded-2xl border border-slate-200 overflow-hidden">
-                            <div className="absolute left-2 top-2 z-10 rounded-lg bg-slate-900/80 px-2 py-1 text-xs font-black text-white">
-                              Trang {idx + 1}
-                            </div>
-                            <img src={getImageUrl(img)} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                            <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => movePage(idx, -1)}
-                                disabled={idx === 0}
-                                className="p-1 bg-white text-slate-600 rounded-lg disabled:opacity-40"
-                                title="Đưa trang lên trước"
-                              >
-                                <ArrowUp className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => movePage(idx, 1)}
-                                disabled={idx === (newExam.imagePages?.length || 0) - 1}
-                                className="p-1 bg-white text-slate-600 rounded-lg disabled:opacity-40"
-                                title="Đưa trang xuống sau"
-                              >
-                                <ArrowDown className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removePage(idx)}
-                                className="p-1 bg-rose-500 text-white rounded-lg"
-                                title="Xóa trang này"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
+                    <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
+                      {newExam.pdfUrl ? (
+                        <ExamPdfViewer pdfUrl={getImageUrl(newExam.pdfUrl)} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
+                          <FileText className="w-16 h-16 opacity-20" />
+                          <div>
+                            <p className="text-sm font-bold">Chưa có file đề thi</p>
+                            <p className="text-xs mt-1">Vui lòng tải file PDF ở trên để xem trước</p>
                           </div>
-                        ))}
-                      </div>
-                      {(newExam.imagePages?.length || 0) === 0 && (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-400">
-                          Chưa có ảnh trang đề. Hãy tải PDF để hệ thống tự tạo ảnh xem trước, hoặc tải ảnh từng trang.
                         </div>
                       )}
                     </div>
@@ -1474,61 +1269,28 @@ export const ExamManagement: React.FC = () => {
                       {uploadStatus && <p className="mt-3 text-sm font-bold text-blue-600">{uploadStatus}</p>}
                     </div>
 
-                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="mb-4 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
-                            <ImageIcon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-black uppercase tracking-wider text-slate-500">Ảnh trang đề ({editForm.imagePages?.length || 0} trang)</label>
-                            <p className="text-xs font-semibold text-slate-400">Kéo thứ tự bằng nút lên/xuống hoặc dán URL ảnh ngoài.</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setEditForm(prev => ({ ...prev, imagePages: [] }))}
-                          className="text-sm font-black text-rose-600 hover:text-rose-700"
-                        >
-                          Xóa tất cả
-                        </button>
-                      </div>
-                      <div className="mb-4 flex flex-col gap-2 md:flex-row">
-                        <input
-                          type="text"
-                          placeholder="Dán URL ảnh rồi Enter..."
-                          className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium outline-none focus:border-blue-500 focus:bg-white"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const url = (e.target as HTMLInputElement).value.trim();
-                              if (url) {
-                                setEditForm(prev => ({ ...prev, imagePages: [...(prev.imagePages || []), url] }));
-                                (e.target as HTMLInputElement).value = '';
-                              }
-                            }
-                          }}
-                        />
-                        <input type="file" ref={editImageInputRef} className="hidden" accept="image/*" multiple onChange={handleEditImageUpload} />
-                        <button
-                          onClick={() => editImageInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          Tải ảnh
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {editForm.imagePages?.map((img, idx) => (
-                          <div key={`${img}-${idx}`} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
-                            <div className="absolute left-2 top-2 z-10 rounded-lg bg-slate-900/80 px-2 py-1 text-xs font-black text-white">Trang {idx + 1}</div>
-                            <img src={getImageUrl(img)} alt={`Page ${idx + 1}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-                            <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                              <button type="button" onClick={() => moveEditPage(idx, -1)} disabled={idx === 0} className="rounded-lg bg-white p-1 text-slate-600 disabled:opacity-40"><ArrowUp className="h-4 w-4" /></button>
-                              <button type="button" onClick={() => moveEditPage(idx, 1)} disabled={idx === (editForm.imagePages?.length || 0) - 1} className="rounded-lg bg-white p-1 text-slate-600 disabled:opacity-40"><ArrowDown className="h-4 w-4" /></button>
-                              <button type="button" onClick={() => removeEditPage(idx)} className="rounded-lg bg-rose-500 p-1 text-white"><X className="h-4 w-4" /></button>
+                    <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
+                      {(editForm.pdfUrl || (editForm.imagePages && editForm.imagePages.length > 0)) ? (
+                        editForm.pdfUrl ? (
+                          <ExamPdfViewer pdfUrl={getImageUrl(editForm.pdfUrl)} />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full gap-4 text-amber-600 p-8 text-center bg-amber-50">
+                            <AlertTriangle className="w-12 h-12" />
+                            <div>
+                              <p className="text-sm font-bold">Đề thi đang sử dụng kiến trúc ảnh cũ (Legacy)</p>
+                              <p className="text-xs mt-1 max-w-md">Vui lòng tải lại file PDF ở trên để chuyển sang kiến trúc mới tối ưu hơn.</p>
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        )
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
+                          <FileText className="w-16 h-16 opacity-20" />
+                          <div>
+                            <p className="text-sm font-bold">Chưa có file đề thi</p>
+                            <p className="text-xs mt-1">Vui lòng tải file PDF ở trên để xem bản xem trước</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
