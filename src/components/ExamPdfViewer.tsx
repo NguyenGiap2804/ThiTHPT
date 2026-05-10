@@ -9,7 +9,8 @@ import {
   Minimize2, 
   Loader2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
@@ -210,11 +211,31 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
               </div>
             }
             error={
-              <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
+              <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center bg-[#2b2d31]">
                 <FileWarning className="w-16 h-16 text-amber-500" />
-                <div>
-                  <h3 className="text-lg font-bold text-white">Không thể tải đề thi</h3>
-                  <p className="text-sm mt-2 max-w-md">Vui lòng kiểm tra lại đường dẫn file hoặc tải lại trang. Nếu lỗi vẫn tiếp diễn, có thể file đã bị xóa.</p>
+                <div className="max-w-md">
+                  <h3 className="text-xl font-bold text-white">Không thể hiển thị đề thi</h3>
+                  <p className="text-sm mt-3 text-slate-400 leading-relaxed">
+                    Trình duyệt không thể lấy file từ Supabase (Lỗi CORS). 
+                    Hãy đảm bảo bạn đã cấu hình CORS trên Supabase cho domain <strong>{window.location.hostname}</strong>.
+                  </p>
+                  <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold transition-all text-sm"
+                    >
+                      Thử lại
+                    </button>
+                    <a 
+                      href={pdfUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all text-sm flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Mở trực tiếp trong tab mới
+                    </a>
+                  </div>
                 </div>
               </div>
             }
