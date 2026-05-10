@@ -2,15 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useApp } from '../../context/AppContext';
 import { ApiError, examApi, uploadApi } from '../../lib/api';
-import { 
+import {
   ArrowDown,
   ArrowUp,
-  Plus, 
-  Search, 
-  Filter, 
-  Edit2, 
-  Trash2, 
-  Eye, 
+  Plus,
+  Search,
+  Filter,
+  Edit2,
+  Trash2,
+  Eye,
   FileUp,
   FileText,
   FileCode,
@@ -72,7 +72,7 @@ export const ExamManagement: React.FC = () => {
   const [editStructureCounts, setEditStructureCounts] = useState({ part1: 12, part2: 4, part3: 6 });
   const [isLoadingEdit, setIsLoadingEdit] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   // Form State
   const [newExam, setNewExam] = useState<ExamDraft>({
     title: '',
@@ -95,7 +95,7 @@ export const ExamManagement: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Local Preview States
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
@@ -115,7 +115,7 @@ export const ExamManagement: React.FC = () => {
     };
   }, [editLocalPreviewUrl]);
 
-  const filteredExams = (exams || []).filter(e => 
+  const filteredExams = (exams || []).filter(e =>
     (
       (e.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (e.examCode || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -246,7 +246,7 @@ export const ExamManagement: React.FC = () => {
         URL.revokeObjectURL(editLocalPreviewUrl);
         setEditLocalPreviewUrl(null);
       }
-      
+
       addNotification({
         title: 'Thành công',
         message: 'Cập nhật đề thi thành công.',
@@ -286,7 +286,7 @@ export const ExamManagement: React.FC = () => {
       const missingAnswers: string[] = [];
       questions.forEach(q => {
         const answer = newExam.answerKey?.[q.id];
-        
+
         if (q.part === 1) {
           if (!answer) missingAnswers.push(q.label);
         } else if (q.part === 2) {
@@ -344,7 +344,7 @@ export const ExamManagement: React.FC = () => {
         pdfUrl: finalPdfUrl,
         questionStructure: (newExam.questionStructure || []).map(q => ({
           ...q,
-          id: q.id.includes('q') ? `${examId}-${q.id}` : q.id 
+          id: q.id.includes('q') ? `${examId}-${q.id}` : q.id
         })),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -363,7 +363,7 @@ export const ExamManagement: React.FC = () => {
 
       await addExam(exam);
       setShowCreateModal(false);
-      
+
       // Reset form
       setNewExam({
         title: '',
@@ -402,7 +402,7 @@ export const ExamManagement: React.FC = () => {
 
     try {
       const data = JSON.parse(importJsonValue);
-      
+
       let importedAnswers = {};
       let importedExplanations = {};
 
@@ -455,7 +455,7 @@ export const ExamManagement: React.FC = () => {
           const upload = await uploadApi.file(file, 'explanations');
           const imageUrl = getImageUrl(upload.url);
           const markdownImg = `\n![Giải thích](${imageUrl})\n`;
-          
+
           if (isEdit) {
             setEditForm(prev => ({
               ...prev,
@@ -499,7 +499,7 @@ export const ExamManagement: React.FC = () => {
     setSelectedPdfFile(file);
     const blobUrl = URL.createObjectURL(file);
     setLocalPreviewUrl(blobUrl);
-    
+
     addNotification({
       title: 'Đã chọn file',
       message: 'File PDF đã được nạp để xem trước. File sẽ được tải lên khi bạn nhấn Lưu.',
@@ -639,7 +639,7 @@ export const ExamManagement: React.FC = () => {
           <p className="text-slate-500 font-medium">Danh sách tất cả các đề thi trong hệ thống</p>
         </div>
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={openCreateModal}
             className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
           >
@@ -653,7 +653,7 @@ export const ExamManagement: React.FC = () => {
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input 
+          <input
             type="text"
             placeholder="Tìm kiếm theo tiêu đề hoặc mã đề..."
             value={searchTerm}
@@ -666,7 +666,7 @@ export const ExamManagement: React.FC = () => {
             <Filter className="w-4 h-4" />
             Bộ lọc
           </button>
-          <select 
+          <select
             value={subjectFilter}
             className="flex-1 md:flex-none px-4 py-3 bg-slate-50 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors outline-none cursor-pointer"
             onChange={(e) => setSubjectFilter(e.target.value)}
@@ -711,7 +711,7 @@ export const ExamManagement: React.FC = () => {
                             <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-600 rounded-md border border-amber-100 group/warn relative">
                               <AlertTriangle className="w-3 h-3" />
                               <span className="text-[10px] font-black uppercase">Local Storage</span>
-                              
+
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover/warn:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
                                 Đề thi này đang dùng bộ nhớ tạm Render. Ảnh sẽ bị mất sau khi deploy. Vui lòng Sửa đề và upload lại PDF để lưu vĩnh viễn trên Supabase.
                               </div>
@@ -724,28 +724,28 @@ export const ExamManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-5">
                     <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold uppercase tracking-wider">
-                      {exam.subjectId === 'math' ? 'Toán học' : 
-                       exam.subjectId === 'literature' ? 'Ngữ văn' :
-                       exam.subjectId === 'english' ? 'Tiếng Anh' :
-                       exam.subjectId === 'biology' ? 'Sinh học' :
-                       exam.subjectId === 'chemistry' ? 'Hóa học' :
-                       exam.subjectId === 'physics' ? 'Vật lý' : 'Môn khác'}
+                      {exam.subjectId === 'math' ? 'Toán học' :
+                        exam.subjectId === 'literature' ? 'Ngữ văn' :
+                          exam.subjectId === 'english' ? 'Tiếng Anh' :
+                            exam.subjectId === 'biology' ? 'Sinh học' :
+                              exam.subjectId === 'chemistry' ? 'Hóa học' :
+                                exam.subjectId === 'physics' ? 'Vật lý' : 'Môn khác'}
                     </span>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-2">
                       <div className={cn(
                         "w-2 h-2 rounded-full",
-                        exam.status === 'published' ? 'bg-emerald-500' : 
-                        exam.status === 'draft' ? 'bg-amber-500' : 'bg-slate-400'
+                        exam.status === 'published' ? 'bg-emerald-500' :
+                          exam.status === 'draft' ? 'bg-amber-500' : 'bg-slate-400'
                       )} />
                       <span className={cn(
                         "text-sm font-bold",
-                        exam.status === 'published' ? 'text-emerald-600' : 
-                        exam.status === 'draft' ? 'text-amber-600' : 'text-slate-500'
+                        exam.status === 'published' ? 'text-emerald-600' :
+                          exam.status === 'draft' ? 'text-amber-600' : 'text-slate-500'
                       )}>
-                        {exam.status === 'published' ? 'Đã xuất bản' : 
-                         exam.status === 'draft' ? 'Bản nháp' : 'Đã ẩn'}
+                        {exam.status === 'published' ? 'Đã xuất bản' :
+                          exam.status === 'draft' ? 'Bản nháp' : 'Đã ẩn'}
                       </span>
                     </div>
                   </td>
@@ -770,7 +770,7 @@ export const ExamManagement: React.FC = () => {
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(exam.id)}
                         className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
                       >
@@ -789,14 +789,14 @@ export const ExamManagement: React.FC = () => {
       <AnimatePresence>
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowCreateModal(false)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -823,8 +823,8 @@ export const ExamManagement: React.FC = () => {
                     onClick={() => setActiveTab(tab.id as any)}
                     className={cn(
                       "px-6 py-4 text-sm font-bold transition-all border-b-2 relative",
-                      activeTab === tab.id 
-                        ? "text-blue-600 border-blue-600" 
+                      activeTab === tab.id
+                        ? "text-blue-600 border-blue-600"
                         : "text-slate-400 border-transparent hover:text-slate-600"
                     )}
                   >
@@ -838,7 +838,7 @@ export const ExamManagement: React.FC = () => {
                   <div className="space-y-6 max-w-2xl">
                     <div className="space-y-2">
                       <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1">Tên đề thi *</label>
-                      <input 
+                      <input
                         type="text"
                         placeholder="VD: Đề thi thử THPT Lần 1 - Hưng Yên 2025-2026"
                         value={newExam.title}
@@ -848,7 +848,7 @@ export const ExamManagement: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1">Môn học *</label>
-                      <select 
+                      <select
                         value={newExam.subjectId}
                         onChange={e => setNewExam(prev => ({ ...prev, subjectId: e.target.value as any }))}
                         className="w-full px-4 py-3 bg-slate-50 border-transparent focus:bg-white focus:border-blue-500 rounded-xl transition-all outline-none font-bold text-slate-700"
@@ -865,7 +865,7 @@ export const ExamManagement: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1">Mã đề</label>
-                        <input 
+                        <input
                           type="text"
                           placeholder="VD: 0101"
                           value={newExam.examCode}
@@ -875,7 +875,7 @@ export const ExamManagement: React.FC = () => {
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-black text-slate-400 uppercase tracking-wider ml-1">Thời gian (phút)</label>
-                        <input 
+                        <input
                           type="number"
                           value={newExam.durationMinutes}
                           onChange={e => setNewExam(prev => ({ ...prev, durationMinutes: parseInt(e.target.value) }))}
@@ -903,21 +903,21 @@ export const ExamManagement: React.FC = () => {
                     <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                       <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4 block">File đề thi (PDF)</label>
                       <div className="flex gap-2">
-                        <input 
+                        <input
                           type="text"
                           placeholder="URL file PDF..."
                           value={(newExam as any).pdfUrl || ''}
                           onChange={e => setNewExam(prev => ({ ...prev, pdfUrl: e.target.value }))}
                           className="flex-1 px-4 py-3 bg-white border-slate-200 rounded-xl outline-none font-medium"
                         />
-                        <input 
-                          type="file" 
-                          ref={fileInputRef} 
-                          className="hidden" 
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
                           accept=".pdf"
                           onChange={handleFileUpload}
                         />
-                        <button 
+                        <button
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading}
                           className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50"
@@ -937,7 +937,7 @@ export const ExamManagement: React.FC = () => {
 
                     <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
                       {(selectedPdfFile || newExam.pdfUrl) ? (
-                        <ExamPdfViewer pdfUrl={selectedPdfFile || (newExam.pdfUrl ? getImageUrl(newExam.pdfUrl) : null)} />
+                        <ExamPdfViewer pdfUrl={localPreviewUrl || (newExam.pdfUrl ? getImageUrl(newExam.pdfUrl) : null)} />
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
                           <FileText className="w-16 h-16 opacity-20" />
@@ -998,7 +998,7 @@ export const ExamManagement: React.FC = () => {
                   <div className="space-y-8">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">Nhập đáp án</h3>
-                      <button 
+                      <button
                         onClick={() => openImportModal('new')}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors"
                       >
@@ -1101,7 +1101,7 @@ export const ExamManagement: React.FC = () => {
                           {newExam.questionStructure?.filter(q => q.part === 3).map(q => (
                             <div key={q.id} className="flex items-center gap-4">
                               <span className="text-sm font-bold text-slate-400 w-12">{q.label}</span>
-                              <input 
+                              <input
                                 type="text"
                                 placeholder="Đáp án..."
                                 value={newExam.answerKey?.[q.id] || ''}
@@ -1146,7 +1146,7 @@ export const ExamManagement: React.FC = () => {
               </div>
 
               <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
-                <button 
+                <button
                   onClick={() => setShowCreateModal(false)}
                   className="px-8 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
                 >
@@ -1154,7 +1154,7 @@ export const ExamManagement: React.FC = () => {
                 </button>
                 <div className="flex-1" />
                 {activeTab !== 'explanations' ? (
-                  <button 
+                  <button
                     onClick={handleNextTab}
                     className="px-8 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2"
                   >
@@ -1162,13 +1162,13 @@ export const ExamManagement: React.FC = () => {
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 ) : (
-                  <button 
+                  <button
                     onClick={handleCreateExam}
                     disabled={isSubmitting}
                     className={cn(
                       "px-8 py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center gap-2",
-                      isSubmitting 
-                        ? "bg-blue-400 cursor-not-allowed" 
+                      isSubmitting
+                        ? "bg-blue-400 cursor-not-allowed"
                         : "bg-blue-600 hover:bg-blue-700 shadow-blue-200 active:scale-95"
                     )}
                   >
@@ -1387,7 +1387,7 @@ export const ExamManagement: React.FC = () => {
                   <div className="space-y-5 border-t border-slate-100 pt-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">Cập nhật đáp án</h3>
-                      <button 
+                      <button
                         onClick={() => openImportModal('edit')}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors"
                       >
@@ -1509,19 +1509,19 @@ export const ExamManagement: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
-      
+
       {/* Import JSON Modal */}
       <AnimatePresence>
         {showImportJsonModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowImportJsonModal(false)}
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -1537,8 +1537,8 @@ export const ExamManagement: React.FC = () => {
                     <p className="text-sm font-medium text-slate-500">Dán mã JSON cấu trúc đáp án và lời giải vào đây</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setShowImportJsonModal(false)} 
+                <button
+                  onClick={() => setShowImportJsonModal(false)}
                   className="p-2 hover:bg-white rounded-xl transition-colors shadow-sm"
                 >
                   <X className="w-6 h-6 text-slate-400" />
@@ -1549,7 +1549,7 @@ export const ExamManagement: React.FC = () => {
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Mã JSON</label>
                   <div className="relative group">
-                    <textarea 
+                    <textarea
                       value={importJsonValue}
                       onChange={e => setImportJsonValue(e.target.value)}
                       placeholder='{ "answers": { "q1": "A", "q2": { "a": true, "b": false... } } }'
@@ -1578,13 +1578,13 @@ export const ExamManagement: React.FC = () => {
               </div>
 
               <div className="p-8 pt-0 flex gap-3">
-                <button 
+                <button
                   onClick={() => setShowImportJsonModal(false)}
                   className="flex-1 px-8 py-4 rounded-2xl font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-all active:scale-95"
                 >
                   Hủy bỏ
                 </button>
-                <button 
+                <button
                   onClick={handleImportJson}
                   disabled={!importJsonValue.trim()}
                   className="flex-[2] px-8 py-4 rounded-2xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 disabled:opacity-50 disabled:scale-100"

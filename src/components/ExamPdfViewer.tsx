@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { motion } from 'motion/react';
-import { 
-  FileWarning, 
-  ZoomIn, 
-  ZoomOut, 
-  Maximize2, 
-  Minimize2, 
+import {
+  FileWarning,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Minimize2,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -19,7 +19,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface ExamPdfViewerProps {
-  pdfUrl: string | File | null;
+  pdfUrl: string | null;
 }
 
 export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
@@ -62,7 +62,7 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
 
     const containerRect = container.getBoundingClientRect();
     const targetY = containerRect.top + Math.min(containerRect.height * 0.35, 300);
-    
+
     let bestIndex = 0;
     let bestDistance = Number.POSITIVE_INFINITY;
 
@@ -99,7 +99,7 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={cn(
         "relative flex flex-col bg-[#2e3136] overflow-hidden transition-all duration-500 font-sans",
@@ -114,16 +114,16 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
             <span className="text-sm font-black text-white">{currentPage}</span>
             <span className="text-[11px] text-slate-500">/ {numPages || '--'}</span>
           </div>
-          
+
           <div className="flex items-center gap-1">
-            <button 
+            <button
               onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
               className="p-1.5 rounded hover:bg-slate-700 disabled:opacity-30 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button 
+            <button
               onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))}
               disabled={currentPage >= numPages}
               className="p-1.5 rounded hover:bg-slate-700 disabled:opacity-30 transition-colors"
@@ -148,8 +148,8 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
 
           <div className="h-6 w-px bg-slate-700 mx-1" />
 
-          <button 
-            onClick={toggleFullScreen} 
+          <button
+            onClick={toggleFullScreen}
             className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors group"
             title={isFullScreen ? "Thoát toàn màn hình" : "Toàn màn hình"}
           >
@@ -173,16 +173,16 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
                     onClick={() => scrollToPage(index + 1)}
                     className={cn(
                       "relative group w-full rounded-lg border-2 transition-all duration-300 overflow-hidden shadow-sm bg-[#2b2d31]",
-                      currentPage === index + 1 
-                        ? "border-blue-500 shadow-blue-900/20 ring-4 ring-blue-500/10" 
+                      currentPage === index + 1
+                        ? "border-blue-500 shadow-blue-900/20 ring-4 ring-blue-500/10"
                         : "border-transparent hover:border-slate-600"
                     )}
                   >
                     <div className="pointer-events-none">
-                      <Page 
-                        pageNumber={index + 1} 
-                        width={140} 
-                        renderTextLayer={false} 
+                      <Page
+                        pageNumber={index + 1}
+                        width={140}
+                        renderTextLayer={false}
                         renderAnnotationLayer={false}
                       />
                     </div>
@@ -197,7 +197,7 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
         )}
 
         {/* PDF Content Area */}
-        <div 
+        <div
           ref={scrollContainerRef}
           className="flex-1 overflow-y-auto bg-[#323639] scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent p-8 scroll-smooth"
         >
@@ -218,7 +218,7 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
                   <p className="text-sm mt-3 text-slate-400 leading-relaxed">
                     {typeof pdfUrl === 'string' && pdfUrl.startsWith('http') ? (
                       <>
-                        Trình duyệt không thể lấy file từ server (Lỗi CORS hoặc kết nối). 
+                        Trình duyệt không thể lấy file từ server (Lỗi CORS hoặc kết nối).
                         Hãy đảm bảo bạn đã cấu hình CORS trên Supabase cho domain <strong>{window.location.hostname}</strong>.
                       </>
                     ) : (
@@ -228,16 +228,16 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
                     )}
                   </p>
                   <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-                    <button 
+                    <button
                       onClick={() => window.location.reload()}
                       className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold transition-all text-sm"
                     >
                       Thử lại
                     </button>
                     {typeof pdfUrl === 'string' && (
-                      <a 
-                        href={pdfUrl} 
-                        target="_blank" 
+                      <a
+                        href={pdfUrl}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all text-sm flex items-center justify-center gap-2"
                       >
@@ -271,8 +271,8 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
                       renderTextLayer={true}
                       renderAnnotationLayer={true}
                       loading={
-                        <div 
-                          style={{ width: Math.min(containerWidth, 900) * zoom, aspectRatio: '3/4' }} 
+                        <div
+                          style={{ width: Math.min(containerWidth, 900) * zoom, aspectRatio: '3/4' }}
                           className="bg-white flex items-center justify-center"
                         >
                           <Loader2 className="w-8 h-8 animate-spin text-slate-200" />
