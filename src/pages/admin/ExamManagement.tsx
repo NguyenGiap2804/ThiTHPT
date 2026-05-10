@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { useApp } from '../../context/AppContext';
 import { ApiError, examApi, uploadApi } from '../../lib/api';
@@ -95,6 +95,25 @@ export const ExamManagement: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Local Preview States
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [editSelectedPdfFile, setEditSelectedPdfFile] = useState<File | null>(null);
+  const [editLocalPreviewUrl, setEditLocalPreviewUrl] = useState<string | null>(null);
+
+  // Revoke object URLs on unmount or when they change
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    };
+  }, [localPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (editLocalPreviewUrl) URL.revokeObjectURL(editLocalPreviewUrl);
+    };
+  }, [editLocalPreviewUrl]);
 
   const filteredExams = (exams || []).filter(e => 
     (
@@ -197,21 +216,52 @@ export const ExamManagement: React.FC = () => {
   const handleUpdateExam = async () => {
     if (!editingExam) return;
 
-    const nextExam = {
-      ...editingExam,
-      ...editForm,
-      durationMinutes: Number(editForm.durationMinutes || editingExam.durationMinutes),
-    } as Exam;
-
     setIsUpdating(true);
     try {
-      await updateExam(nextExam);
+      let finalPdfUrl = editForm.pdfUrl;
+
+      // 1. Upload new PDF if selected locally
+      if (editSelectedPdfFile) {
+        setUploadStatus('Đang tải PDF mới...');
+        try {
+          const pdfUpload = await uploadApi.file(editSelectedPdfFile, 'pdfs');
+          finalPdfUrl = pdfUpload.url;
+        } catch (err) {
+          throw new Error(getUploadErrorMessage(err, 'Không thể tải file PDF mới lên server.'));
+        }
+      }
+
+      const nextExam = {
+        ...editingExam,
+        ...editForm,
+        pdfUrl: finalPdfUrl,
+        durationMinutes: Number(editForm.durationMinutes || editingExam.durationMinutes),
+      } as Exam;
+
+      await updateExam(nextExam.id, nextExam);
       setEditingExam(null);
       setEditForm({});
+      setEditSelectedPdfFile(null);
+      if (editLocalPreviewUrl) {
+        URL.revokeObjectURL(editLocalPreviewUrl);
+        setEditLocalPreviewUrl(null);
+      }
+      
+      addNotification({
+        title: 'Thành công',
+        message: 'Cập nhật đề thi thành công.',
+        type: 'success',
+      });
     } catch (err) {
       console.error('Failed to update exam', err);
+      addNotification({
+        title: 'Lỗi',
+        message: err instanceof Error ? err.message : 'Không thể cập nhật đề thi.',
+        type: 'error',
+      });
     } finally {
       setIsUpdating(false);
+      setUploadStatus('');
     }
   };
 
@@ -224,8 +274,8 @@ export const ExamManagement: React.FC = () => {
     if (!newExam.subjectId) errors.push('Chưa chọn môn học');
 
     // 2. File/Images
-    if (!newExam.pdfUrl && (!newExam.imagePages || newExam.imagePages.length === 0)) {
-      errors.push('Vui lòng tải file đề PDF (Phần "File đề thi")');
+    if (!localPreviewUrl && !newExam.pdfUrl && (!newExam.imagePages || newExam.imagePages.length === 0)) {
+      errors.push('Vui lòng chọn file đề PDF (Phần "File đề thi")');
     }
 
     // 3. Question Structure & Answers
@@ -274,10 +324,24 @@ export const ExamManagement: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      let finalPdfUrl = newExam.pdfUrl;
+
+      // 1. Upload PDF if selected locally
+      if (selectedPdfFile) {
+        setUploadStatus('Đang tải PDF lên hệ thống...');
+        try {
+          const pdfUpload = await uploadApi.file(selectedPdfFile, 'pdfs');
+          finalPdfUrl = pdfUpload.url;
+        } catch (err) {
+          throw new Error(getUploadErrorMessage(err, 'Không thể tải file PDF lên server.'));
+        }
+      }
+
       const examId = `ex-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
       const exam: Exam = {
         ...newExam as Exam,
         id: examId,
+        pdfUrl: finalPdfUrl,
         questionStructure: (newExam.questionStructure || []).map(q => ({
           ...q,
           id: q.id.includes('q') ? `${examId}-${q.id}` : q.id 
@@ -312,6 +376,11 @@ export const ExamManagement: React.FC = () => {
         answerKey: {},
         explanations: {},
       });
+      setSelectedPdfFile(null);
+      if (localPreviewUrl) {
+        URL.revokeObjectURL(localPreviewUrl);
+        setLocalPreviewUrl(null);
+      }
       setActiveTab('info');
       setUploadStatus('');
     } catch (err) {
@@ -410,70 +479,64 @@ export const ExamManagement: React.FC = () => {
       }
     }
   };
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadStatus('Đang tải PDF lên server...');
-    try {
-      const pdfUpload = await uploadApi.file(file, 'pdfs');
-      
-      setNewExam(prev => ({
-        ...prev,
-        pdfUrl: pdfUpload.url
-      }));
-
+    // Validate if it's a PDF
+    if (file.type !== 'application/pdf') {
       addNotification({
-        title: 'Thành công',
-        message: 'Đã tải PDF thành công. Bạn có thể xem bản xem trước bên dưới.',
-        type: 'success'
-      });
-    } catch (err) {
-      console.error('PDF upload failed', err);
-      addNotification({
-        title: 'Lỗi',
-        message: getUploadErrorMessage(err, 'Không thể tải file PDF. Vui lòng thử lại.'),
+        title: 'Lỗi file',
+        message: 'Vui lòng chọn file định dạng PDF.',
         type: 'error'
       });
-    } finally {
-      setIsUploading(false);
-      setUploadStatus('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
     }
+
+    // Revoke old URL if exists
+    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+
+    setSelectedPdfFile(file);
+    const blobUrl = URL.createObjectURL(file);
+    setLocalPreviewUrl(blobUrl);
+    
+    addNotification({
+      title: 'Đã chọn file',
+      message: 'File PDF đã được nạp để xem trước. File sẽ được tải lên khi bạn nhấn Lưu.',
+      type: 'success'
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadStatus('Đang tải PDF mới...');
-    try {
-      const pdfUpload = await uploadApi.file(file, 'pdfs');
-      
-      setEditForm(prev => ({
-        ...prev,
-        pdfUrl: pdfUpload.url
-      }));
-
+    // Validate if it's a PDF
+    if (file.type !== 'application/pdf') {
       addNotification({
-        title: 'Thành công',
-        message: 'Đã thay thế file đề thành công.',
-        type: 'success'
-      });
-    } catch (err) {
-      console.error('Edit PDF upload failed', err);
-      addNotification({
-        title: 'Lỗi',
-        message: getUploadErrorMessage(err, 'Không thể tải file PDF mới.'),
+        title: 'Lỗi file',
+        message: 'Vui lòng chọn file định dạng PDF.',
         type: 'error'
       });
-    } finally {
-      setIsUploading(false);
-      setUploadStatus('');
-      if (editFileInputRef.current) editFileInputRef.current.value = '';
+      return;
     }
+
+    // Revoke old URL if exists
+    if (editLocalPreviewUrl) URL.revokeObjectURL(editLocalPreviewUrl);
+
+    setEditSelectedPdfFile(file);
+    const blobUrl = URL.createObjectURL(file);
+    setEditLocalPreviewUrl(blobUrl);
+
+    addNotification({
+      title: 'Đã chọn file mới',
+      message: 'File PDF mới đã được nạp để xem trước. File sẽ được thay thế khi bạn nhấn Lưu.',
+      type: 'success'
+    });
+
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
   };
 
 
@@ -864,7 +927,7 @@ export const ExamManagement: React.FC = () => {
                           ) : (
                             <FileUp className="w-4 h-4" />
                           )}
-                          Tải lên PDF
+                          Chọn file PDF
                         </button>
                       </div>
                       {uploadStatus && (
@@ -873,14 +936,14 @@ export const ExamManagement: React.FC = () => {
                     </div>
 
                     <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
-                      {newExam.pdfUrl ? (
-                        <ExamPdfViewer pdfUrl={getImageUrl(newExam.pdfUrl)} />
+                      {(localPreviewUrl || newExam.pdfUrl) ? (
+                        <ExamPdfViewer pdfUrl={localPreviewUrl || getImageUrl(newExam.pdfUrl)} />
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
                           <FileText className="w-16 h-16 opacity-20" />
                           <div>
                             <p className="text-sm font-bold">Chưa có file đề thi</p>
-                            <p className="text-xs mt-1">Vui lòng tải file PDF ở trên để xem trước</p>
+                            <p className="text-xs mt-1">Vui lòng chọn file PDF ở trên để xem trước</p>
                           </div>
                         </div>
                       )}
@@ -1263,22 +1326,22 @@ export const ExamManagement: React.FC = () => {
                           disabled={isUploading}
                           className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-50"
                         >
-                          Tải PDF mới
+                          Chọn file PDF mới
                         </button>
                       </div>
                       {uploadStatus && <p className="mt-3 text-sm font-bold text-blue-600">{uploadStatus}</p>}
                     </div>
 
                     <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
-                      {(editForm.pdfUrl || (editForm.imagePages && editForm.imagePages.length > 0)) ? (
-                        editForm.pdfUrl ? (
-                          <ExamPdfViewer pdfUrl={getImageUrl(editForm.pdfUrl)} />
+                      {(editLocalPreviewUrl || editForm.pdfUrl || (editForm.imagePages && editForm.imagePages.length > 0)) ? (
+                        (editLocalPreviewUrl || editForm.pdfUrl) ? (
+                          <ExamPdfViewer pdfUrl={editLocalPreviewUrl || getImageUrl(editForm.pdfUrl)} />
                         ) : (
                           <div className="flex flex-col items-center justify-center h-full gap-4 text-amber-600 p-8 text-center bg-amber-50">
                             <AlertTriangle className="w-12 h-12" />
                             <div>
                               <p className="text-sm font-bold">Đề thi đang sử dụng kiến trúc ảnh cũ (Legacy)</p>
-                              <p className="text-xs mt-1 max-w-md">Vui lòng tải lại file PDF ở trên để chuyển sang kiến trúc mới tối ưu hơn.</p>
+                              <p className="text-xs mt-1 max-w-md">Vui lòng chọn file PDF ở trên để chuyển sang kiến trúc mới tối ưu hơn.</p>
                             </div>
                           </div>
                         )
@@ -1287,7 +1350,7 @@ export const ExamManagement: React.FC = () => {
                           <FileText className="w-16 h-16 opacity-20" />
                           <div>
                             <p className="text-sm font-bold">Chưa có file đề thi</p>
-                            <p className="text-xs mt-1">Vui lòng tải file PDF ở trên để xem bản xem trước</p>
+                            <p className="text-xs mt-1">Vui lòng chọn file PDF ở trên để xem bản xem trước</p>
                           </div>
                         </div>
                       )}
