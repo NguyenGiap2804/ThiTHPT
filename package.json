@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:pdf": "tsx scripts/verify-pdf-editor.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -20,6 +21,7 @@
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "p-limit": "^7.3.0",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "5.4.296",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

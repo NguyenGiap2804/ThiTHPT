@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ApiError, examApi, uploadApi } from '../../lib/api';
 import {
@@ -29,6 +28,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn, getImageUrl } from '../../lib/utils';
 import { Exam } from '../../types';
 import { ExamPdfViewer } from '../../components/ExamPdfViewer';
+import { PdfPageEditor } from '../../components/PdfPageEditor';
+import { usePdfEditor } from '../../hooks/usePdfEditor';
+import { usePdfPreview } from '../../hooks/usePdfPreview';
+import { uploadExamPdf } from '../../services/upload.service';
 
 type ExamDraft = Partial<Exam> & {
   pdfUrl?: string;
@@ -96,24 +99,11 @@ export const ExamManagement: React.FC = () => {
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Local Preview States
-  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
-  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
-  const [editSelectedPdfFile, setEditSelectedPdfFile] = useState<File | null>(null);
-  const [editLocalPreviewUrl, setEditLocalPreviewUrl] = useState<string | null>(null);
-
-  // Revoke object URLs on unmount or when they change
-  useEffect(() => {
-    return () => {
-      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
-    };
-  }, [localPreviewUrl]);
-
-  useEffect(() => {
-    return () => {
-      if (editLocalPreviewUrl) URL.revokeObjectURL(editLocalPreviewUrl);
-    };
-  }, [editLocalPreviewUrl]);
+  const createPdfPreview = usePdfPreview();
+  const editPdfPreview = usePdfPreview();
+  const createPdfEditor = usePdfEditor();
+  const editPdfEditor = usePdfEditor();
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const filteredExams = (exams || []).filter(e =>
     (
@@ -176,6 +166,8 @@ export const ExamManagement: React.FC = () => {
   const startEditExam = async (exam: Exam) => {
     setEditingExam(exam);
     setEditTab('info');
+    editPdfPreview.clear();
+    editPdfEditor.reset();
     setEditForm({
       title: exam.title,
       examCode: exam.examCode,
@@ -220,14 +212,21 @@ export const ExamManagement: React.FC = () => {
     try {
       let finalPdfUrl = editForm.pdfUrl;
 
-      // 1. Upload new PDF if selected locally
-      if (editSelectedPdfFile) {
-        setUploadStatus('Đang tải PDF mới...');
+      if (editPdfPreview.file) {
+        setUploadStatus('Đang tạo PDF cuối cùng...');
+        setUploadProgress(null);
         try {
-          const pdfUpload = await uploadApi.file(editSelectedPdfFile, 'pdfs');
+          const finalPdf = await editPdfEditor.buildFinalPdf(editPdfPreview.file);
+          setUploadStatus('Đang tải PDF đã chỉnh sửa lên hệ thống...');
+          const pdfUpload = await uploadExamPdf(finalPdf, {
+            onProgress: progress => {
+              setUploadProgress(progress);
+              setUploadStatus(`Đang tải PDF đã chỉnh sửa... ${progress}%`);
+            },
+          });
           finalPdfUrl = pdfUpload.url;
         } catch (err) {
-          throw new Error(getUploadErrorMessage(err, 'Không thể tải file PDF mới lên server.'));
+          throw new Error(getUploadErrorMessage(err, 'Không thể xử lý PDF mới.'));
         }
       }
 
@@ -241,11 +240,8 @@ export const ExamManagement: React.FC = () => {
       await updateExam(nextExam.id, nextExam);
       setEditingExam(null);
       setEditForm({});
-      setEditSelectedPdfFile(null);
-      if (editLocalPreviewUrl) {
-        URL.revokeObjectURL(editLocalPreviewUrl);
-        setEditLocalPreviewUrl(null);
-      }
+      editPdfPreview.clear();
+      editPdfEditor.reset();
 
       addNotification({
         title: 'Thành công',
@@ -262,6 +258,7 @@ export const ExamManagement: React.FC = () => {
     } finally {
       setIsUpdating(false);
       setUploadStatus('');
+      setUploadProgress(null);
     }
   };
 
@@ -274,7 +271,7 @@ export const ExamManagement: React.FC = () => {
     if (!newExam.subjectId) errors.push('Chưa chọn môn học');
 
     // 2. File/Images
-    if (!localPreviewUrl && !newExam.pdfUrl && (!newExam.imagePages || newExam.imagePages.length === 0)) {
+    if (!createPdfPreview.file && !newExam.pdfUrl && (!newExam.imagePages || newExam.imagePages.length === 0)) {
       errors.push('Vui lòng chọn file đề PDF (Phần "File đề thi")');
     }
 
@@ -326,14 +323,21 @@ export const ExamManagement: React.FC = () => {
     try {
       let finalPdfUrl = newExam.pdfUrl;
 
-      // 1. Upload PDF if selected locally
-      if (selectedPdfFile) {
-        setUploadStatus('Đang tải PDF lên hệ thống...');
+      if (createPdfPreview.file) {
+        setUploadStatus('Đang tạo PDF cuối cùng...');
+        setUploadProgress(null);
         try {
-          const pdfUpload = await uploadApi.file(selectedPdfFile, 'pdfs');
+          const finalPdf = await createPdfEditor.buildFinalPdf(createPdfPreview.file);
+          setUploadStatus('Đang tải PDF đã chỉnh sửa lên hệ thống...');
+          const pdfUpload = await uploadExamPdf(finalPdf, {
+            onProgress: progress => {
+              setUploadProgress(progress);
+              setUploadStatus(`Đang tải PDF đã chỉnh sửa... ${progress}%`);
+            },
+          });
           finalPdfUrl = pdfUpload.url;
         } catch (err) {
-          throw new Error(getUploadErrorMessage(err, 'Không thể tải file PDF lên server.'));
+          throw new Error(getUploadErrorMessage(err, 'Không thể xử lý PDF đã chọn.'));
         }
       }
 
@@ -376,18 +380,22 @@ export const ExamManagement: React.FC = () => {
         answerKey: {},
         explanations: {},
       });
-      setSelectedPdfFile(null);
-      if (localPreviewUrl) {
-        URL.revokeObjectURL(localPreviewUrl);
-        setLocalPreviewUrl(null);
-      }
+      createPdfPreview.clear();
+      createPdfEditor.reset();
       setActiveTab('info');
       setUploadStatus('');
+      setUploadProgress(null);
     } catch (err) {
       console.error(err);
-      alert('Không thể tạo đề thi. Vui lòng kiểm tra lại kết nối.');
+      addNotification({
+        title: 'Lỗi',
+        message: err instanceof Error ? err.message : 'Không thể tạo đề thi. Vui lòng kiểm tra lại kết nối.',
+        type: 'error',
+      });
     } finally {
       setIsSubmitting(false);
+      setUploadStatus('');
+      setUploadProgress(null);
     }
   };
 
@@ -493,16 +501,13 @@ export const ExamManagement: React.FC = () => {
       return;
     }
 
-    // Revoke old URL if exists
-    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
-
-    setSelectedPdfFile(file);
-    const blobUrl = URL.createObjectURL(file);
-    setLocalPreviewUrl(blobUrl);
+    createPdfEditor.reset();
+    createPdfPreview.setFile(file);
+    setNewExam(prev => ({ ...prev, pdfUrl: '' }));
 
     addNotification({
       title: 'Đã chọn file',
-      message: 'File PDF đã được nạp để xem trước. File sẽ được tải lên khi bạn nhấn Lưu.',
+      message: 'File PDF đã được nạp local. Hãy chọn trang cần giữ, file chỉ upload khi bạn nhấn Lưu.',
       type: 'success'
     });
 
@@ -523,16 +528,12 @@ export const ExamManagement: React.FC = () => {
       return;
     }
 
-    // Revoke old URL if exists
-    if (editLocalPreviewUrl) URL.revokeObjectURL(editLocalPreviewUrl);
-
-    setEditSelectedPdfFile(file);
-    const blobUrl = URL.createObjectURL(file);
-    setEditLocalPreviewUrl(blobUrl);
+    editPdfEditor.reset();
+    editPdfPreview.setFile(file);
 
     addNotification({
       title: 'Đã chọn file mới',
-      message: 'File PDF mới đã được nạp để xem trước. File sẽ được thay thế khi bạn nhấn Lưu.',
+      message: 'File PDF mới đã được nạp local. Hãy chọn trang cần giữ, file chỉ upload khi bạn nhấn Lưu.',
       type: 'success'
     });
 
@@ -589,8 +590,30 @@ export const ExamManagement: React.FC = () => {
     const counts = { part1: 12, part2: 4, part3: 6 };
     setStructureCounts(counts);
     generateStructure(counts.part1, counts.part2, counts.part3);
+    createPdfPreview.clear();
+    createPdfEditor.reset();
+    setUploadStatus('');
+    setUploadProgress(null);
     setShowCreateModal(true);
     setActiveTab('info');
+  };
+
+  const closeCreateModal = () => {
+    if (isSubmitting) return;
+    setShowCreateModal(false);
+    createPdfPreview.clear();
+    createPdfEditor.reset();
+    setUploadStatus('');
+    setUploadProgress(null);
+  };
+
+  const closeEditModal = () => {
+    if (isUpdating) return;
+    setEditingExam(null);
+    editPdfPreview.clear();
+    editPdfEditor.reset();
+    setUploadStatus('');
+    setUploadProgress(null);
   };
 
   const updateStructureCount = (key: keyof typeof structureCounts, value: number) => {
@@ -619,8 +642,13 @@ export const ExamManagement: React.FC = () => {
   };
 
   const handleNextTab = () => {
-    if (activeTab === 'file' && !newExam.pdfUrl && (newExam.imagePages || []).length === 0) {
+    if (activeTab === 'file' && !createPdfPreview.file && !newExam.pdfUrl && (newExam.imagePages || []).length === 0) {
       alert('Vui lòng tải file PDF đề thi trước khi tiếp tục.');
+      return;
+    }
+
+    if (activeTab === 'file' && createPdfPreview.file && createPdfEditor.keptCount === 0) {
+      alert('Vui lòng giữ ít nhất 1 trang PDF trước khi tiếp tục.');
       return;
     }
 
@@ -793,7 +821,7 @@ export const ExamManagement: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowCreateModal(false)}
+              onClick={closeCreateModal}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
             <motion.div
@@ -804,7 +832,7 @@ export const ExamManagement: React.FC = () => {
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Thêm đề thi mới</h2>
-                <button onClick={() => setShowCreateModal(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                <button onClick={closeCreateModal} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
                   <X className="w-6 h-6 text-slate-400" />
                 </button>
               </div>
@@ -902,14 +930,15 @@ export const ExamManagement: React.FC = () => {
                   <div className="space-y-8 max-w-5xl">
                     <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                       <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4 block">File đề thi (PDF)</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="URL file PDF..."
-                          value={(newExam as any).pdfUrl || ''}
-                          onChange={e => setNewExam(prev => ({ ...prev, pdfUrl: e.target.value }))}
-                          className="flex-1 px-4 py-3 bg-white border-slate-200 rounded-xl outline-none font-medium"
-                        />
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                        <div className="flex-1 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-3">
+                          <p className="text-sm font-black text-slate-800">
+                            {createPdfPreview.file ? createPdfPreview.file.name : 'Chưa chọn PDF local'}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-400">
+                            PDF sẽ được chỉnh trang và chỉ upload lên Supabase khi bạn bấm tạo đề.
+                          </p>
+                        </div>
                         <input
                           type="file"
                           ref={fileInputRef}
@@ -919,7 +948,7 @@ export const ExamManagement: React.FC = () => {
                         />
                         <button
                           onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
+                          disabled={isUploading || isSubmitting}
                           className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 disabled:opacity-50"
                         >
                           {isUploading ? (
@@ -935,15 +964,26 @@ export const ExamManagement: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
-                      {(selectedPdfFile || newExam.pdfUrl) ? (
-                        <ExamPdfViewer pdfUrl={localPreviewUrl || (newExam.pdfUrl ? getImageUrl(newExam.pdfUrl) : null)} />
+                    <div>
+                      {createPdfPreview.objectUrl ? (
+                        <PdfPageEditor
+                          fileUrl={createPdfPreview.objectUrl}
+                          fileName={createPdfPreview.file?.name}
+                          editor={createPdfEditor}
+                          busy={isSubmitting || createPdfEditor.isBuilding}
+                          status={uploadStatus}
+                          uploadProgress={uploadProgress}
+                        />
+                      ) : newExam.pdfUrl ? (
+                        <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
+                          <ExamPdfViewer pdfUrl={getImageUrl(newExam.pdfUrl)} />
+                        </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
+                        <div className="flex min-h-[520px] flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-400">
                           <FileText className="w-16 h-16 opacity-20" />
                           <div>
                             <p className="text-sm font-bold">Chưa có file đề thi</p>
-                            <p className="text-xs mt-1">Vui lòng chọn file PDF ở trên để xem trước</p>
+                            <p className="text-xs mt-1">Vui lòng chọn file PDF để mở trình chỉnh trang.</p>
                           </div>
                         </div>
                       )}
@@ -1147,7 +1187,7 @@ export const ExamManagement: React.FC = () => {
 
               <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-3">
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={closeCreateModal}
                   className="px-8 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
                 >
                   Hủy
@@ -1189,9 +1229,7 @@ export const ExamManagement: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => {
-                if (!isUpdating) setEditingExam(null);
-              }}
+              onClick={closeEditModal}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             />
             <motion.div
@@ -1206,7 +1244,7 @@ export const ExamManagement: React.FC = () => {
                   <p className="mt-1 text-sm font-semibold text-slate-400">Cập nhật thông tin, file đề, cấu trúc, đáp án và lời giải trong một luồng.</p>
                 </div>
                 <button
-                  onClick={() => setEditingExam(null)}
+                  onClick={closeEditModal}
                   disabled={isUpdating}
                   className="p-2 hover:bg-slate-100 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -1313,17 +1351,18 @@ export const ExamManagement: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex flex-col gap-3 md:flex-row">
-                        <input
-                          type="text"
-                          placeholder="URL file PDF..."
-                          value={editForm.pdfUrl || ''}
-                          onChange={e => setEditForm(prev => ({ ...prev, pdfUrl: e.target.value }))}
-                          className="flex-1 rounded-2xl border border-blue-100 bg-white px-4 py-3 font-medium outline-none focus:border-blue-500"
-                        />
+                        <div className="min-w-0 flex-1 rounded-2xl border border-blue-100 bg-white px-4 py-3">
+                          <p className="truncate text-sm font-black text-slate-800">
+                            {editPdfPreview.file ? editPdfPreview.file.name : (editForm.pdfUrl || 'Chưa có PDF')}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-400">
+                            PDF mới sẽ được chỉnh local và chỉ upload sau khi bấm Lưu thay đổi.
+                          </p>
+                        </div>
                         <input type="file" ref={editFileInputRef} className="hidden" accept=".pdf" onChange={handleEditFileUpload} />
                         <button
                           onClick={() => editFileInputRef.current?.click()}
-                          disabled={isUploading}
+                          disabled={isUploading || isUpdating}
                           className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-50"
                         >
                           Chọn file PDF mới
@@ -1332,12 +1371,23 @@ export const ExamManagement: React.FC = () => {
                       {uploadStatus && <p className="mt-3 text-sm font-bold text-blue-600">{uploadStatus}</p>}
                     </div>
 
-                    <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
-                      {(editSelectedPdfFile || editForm.pdfUrl || (editForm.imagePages && editForm.imagePages.length > 0)) ? (
-                        (editSelectedPdfFile || editForm.pdfUrl) ? (
-                          <ExamPdfViewer pdfUrl={editLocalPreviewUrl || (editForm.pdfUrl ? getImageUrl(editForm.pdfUrl) : null)} />
+                    <div>
+                      {(editPdfPreview.objectUrl || editForm.pdfUrl || (editForm.imagePages && editForm.imagePages.length > 0)) ? (
+                        editPdfPreview.objectUrl ? (
+                          <PdfPageEditor
+                            fileUrl={editPdfPreview.objectUrl}
+                            fileName={editPdfPreview.file?.name}
+                            editor={editPdfEditor}
+                            busy={isUpdating || editPdfEditor.isBuilding}
+                            status={uploadStatus}
+                            uploadProgress={uploadProgress}
+                          />
+                        ) : editForm.pdfUrl ? (
+                          <div className="h-[600px] rounded-3xl border border-slate-200 overflow-hidden bg-slate-50">
+                            <ExamPdfViewer pdfUrl={getImageUrl(editForm.pdfUrl)} />
+                          </div>
                         ) : (
-                          <div className="flex flex-col items-center justify-center h-full gap-4 text-amber-600 p-8 text-center bg-amber-50">
+                          <div className="flex min-h-[520px] flex-col items-center justify-center gap-4 rounded-3xl text-amber-600 p-8 text-center bg-amber-50">
                             <AlertTriangle className="w-12 h-12" />
                             <div>
                               <p className="text-sm font-bold">Đề thi đang sử dụng kiến trúc ảnh cũ (Legacy)</p>
@@ -1346,7 +1396,7 @@ export const ExamManagement: React.FC = () => {
                           </div>
                         )
                       ) : (
-                        <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 p-8 text-center">
+                        <div className="flex min-h-[520px] flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-400">
                           <FileText className="w-16 h-16 opacity-20" />
                           <div>
                             <p className="text-sm font-bold">Chưa có file đề thi</p>
@@ -1481,7 +1531,7 @@ export const ExamManagement: React.FC = () => {
               </div>
               <div className="shrink-0 border-t border-slate-100 bg-slate-50/90 p-5 flex justify-end gap-3">
                 <button
-                  onClick={() => setEditingExam(null)}
+                  onClick={closeEditModal}
                   disabled={isUpdating}
                   className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >

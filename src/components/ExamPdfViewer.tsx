@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { motion } from 'motion/react';
@@ -15,20 +15,13 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+import { pdfDocumentOptions, pdfjs } from '../lib/pdfjs';
 
 type PdfSource = string | File | Blob;
 
 interface ExamPdfViewerProps {
   pdfUrl: PdfSource | null;
 }
-
-const documentOptions = {
-  cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
-  standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
-};
 
 export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
   const [numPages, setNumPages] = useState<number>(0);
@@ -236,7 +229,7 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
               Xem trước trang
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent">
-              <Document file={documentFile} options={documentOptions} loading={null} error={null}>
+              <Document file={documentFile} options={pdfDocumentOptions} loading={null} error={null}>
                 {Array.from(new Array(numPages), (_, index) => (
                   <button
                     type="button"
@@ -274,7 +267,7 @@ export const ExamPdfViewer: React.FC<ExamPdfViewerProps> = ({ pdfUrl }) => {
           {documentFile ? (
             <Document
               file={documentFile}
-              options={documentOptions}
+              options={pdfDocumentOptions}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={onDocumentLoadError}
               loading={
