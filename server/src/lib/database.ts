@@ -5,6 +5,11 @@ dotenv.config();
 
 const { Pool } = pg;
 
+const toInt = (value: string | undefined, fallback: number) => {
+  const parsed = Number.parseInt(value || "", 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 const pool = new Pool({
   host: process.env.PGHOST,
   user: process.env.PGUSER,
@@ -12,6 +17,10 @@ const pool = new Pool({
   database: process.env.PGDATABASE,
   port: parseInt(process.env.PGPORT || '5432'),
   ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
+  max: toInt(process.env.PGPOOL_MAX || process.env.PG_POOL_MAX, 10),
+  idleTimeoutMillis: toInt(process.env.PG_IDLE_TIMEOUT_MS, 30000),
+  connectionTimeoutMillis: toInt(process.env.PG_CONNECTION_TIMEOUT_MS, 10000),
+  statement_timeout: toInt(process.env.PG_STATEMENT_TIMEOUT_MS, 30000),
 });
 
 /**

@@ -53,8 +53,8 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
   try {
     await query(
       `
-      INSERT INTO "UploadedFiles" (id, "originalName", filename, url, "mimeType", "sizeBytes", "uploadedBy", "createdAt")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      INSERT INTO "UploadedFiles" (id, "originalName", filename, url, "mimeType", "sizeBytes", "uploadedBy", "storageProvider", "objectKey", "createdAt")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
     `,
       [
         uuidv4(),
@@ -64,10 +64,30 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
         req.file.mimetype,
         req.file.size,
         req.user?.id ?? null,
+        storedFile.storageProvider,
+        storedFile.objectKey ?? null,
       ]
     );
   } catch (error) {
-    console.warn("Upload metadata was not stored:", error);
+    try {
+      await query(
+        `
+        INSERT INTO "UploadedFiles" (id, "originalName", filename, url, "mimeType", "sizeBytes", "uploadedBy", "createdAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        `,
+        [
+          uuidv4(),
+          req.file.originalname,
+          storedFile.filename,
+          storedFile.url,
+          req.file.mimetype,
+          req.file.size,
+          req.user?.id ?? null,
+        ]
+      );
+    } catch (metadataError) {
+      console.warn("Upload metadata was not stored:", metadataError);
+    }
   }
 
   res.status(200).json({
@@ -78,6 +98,7 @@ router.post("/", authMiddleware, adminMiddleware, upload.single("file"), async (
       mimetype: req.file.mimetype,
       size: req.file.size,
       storageProvider: storedFile.storageProvider,
+      objectKey: storedFile.objectKey,
     },
   });
 });

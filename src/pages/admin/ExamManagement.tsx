@@ -14,6 +14,12 @@ import {
   FileUp,
   FileText,
   FileCode,
+  ImageIcon,
+  Info,
+  KeyRound,
+  ListChecks,
+  MessageSquare,
+  Save,
   CheckCircle2,
   AlertCircle,
   ChevronRight,
@@ -122,7 +128,11 @@ export const ExamManagement: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa đề thi này?')) {
-      await deleteExam(id);
+      try {
+        await deleteExam(id);
+      } catch (error) {
+        console.error('Failed to delete exam', error);
+      }
     }
   };
 
@@ -208,27 +218,24 @@ export const ExamManagement: React.FC = () => {
   const handleUpdateExam = async () => {
     if (!editingExam) return;
 
+    const nextExam = {
+      ...editingExam,
+      ...editForm,
+      durationMinutes: Number(editForm.durationMinutes || editingExam.durationMinutes),
+    } as Exam;
+
+    const previousEditingExam = editingExam;
+    const previousEditForm = editForm;
+
     setIsUpdating(true);
+    setEditingExam(null);
+    setEditForm({});
     try {
-      await updateExam({
-        ...editingExam,
-        ...editForm,
-        durationMinutes: Number(editForm.durationMinutes || editingExam.durationMinutes),
-      } as Exam);
-      setEditingExam(null);
-      setEditForm({});
-      addNotification({
-        title: 'Thành công',
-        message: 'Đã cập nhật đề thi thành công!',
-        type: 'success'
-      });
+      await updateExam(nextExam);
     } catch (err) {
       console.error('Failed to update exam', err);
-      addNotification({
-        title: 'Lỗi',
-        message: 'Không thể cập nhật đề thi.',
-        type: 'error',
-      });
+      setEditingExam(previousEditingExam);
+      setEditForm(previousEditForm);
     } finally {
       setIsUpdating(false);
     }
@@ -1313,35 +1320,39 @@ export const ExamManagement: React.FC = () => {
               initial={{ scale: 0.95, opacity: 0, y: 12 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 12 }}
-              className="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto"
+              className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sửa đầy đủ đề thi</h2>
+              <div className="shrink-0 border-b border-slate-100 bg-white p-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Sửa đầy đủ đề thi</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-400">Cập nhật thông tin, file đề, cấu trúc, đáp án và lời giải trong một luồng.</p>
+                </div>
                 <button onClick={() => setEditingExam(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
                   <X className="w-6 h-6 text-slate-400" />
                 </button>
               </div>
-              <div className="flex gap-2 border-b border-slate-100 px-6 py-3">
+              <div className="shrink-0 flex gap-2 overflow-x-auto border-b border-slate-100 bg-white px-6 py-3">
                 {[
-                  { id: 'info', label: 'Thông tin' },
-                  { id: 'file', label: 'File đề' },
-                  { id: 'structure', label: 'Cấu trúc' },
-                  { id: 'answers', label: 'Đáp án' },
-                  { id: 'explanations', label: 'Lời giải' },
+                  { id: 'info', label: 'Thông tin', icon: Info },
+                  { id: 'file', label: 'File đề', icon: ImageIcon },
+                  { id: 'structure', label: 'Cấu trúc', icon: ListChecks },
+                  { id: 'answers', label: 'Đáp án', icon: KeyRound },
+                  { id: 'explanations', label: 'Lời giải', icon: MessageSquare },
                 ].map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setEditTab(tab.id as typeof editTab)}
                     className={cn(
-                      "rounded-xl px-4 py-2 text-sm font-black transition-all",
+                      "flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition-all",
                       editTab === tab.id ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                     )}
                   >
+                    <tab.icon className="h-4 w-4" />
                     {tab.label}
                   </button>
                 ))}
               </div>
-              <div className="p-6 space-y-5">
+              <div className="flex-1 overflow-y-auto bg-white p-6 space-y-5">
                 {isLoadingEdit && (
                   <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
                     Đang tải dữ liệu đầy đủ của đề thi...
@@ -1409,21 +1420,29 @@ export const ExamManagement: React.FC = () => {
                 </div>
                 {editTab === 'file' && (
                   <div className="space-y-6 border-t border-slate-100 pt-6">
-                    <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
-                      <label className="mb-4 block text-xs font-black uppercase tracking-wider text-slate-400">Thay PDF đề thi</label>
+                    <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm">
+                      <div className="mb-4 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black uppercase tracking-wider text-blue-500">Thay PDF đề thi</label>
+                          <p className="text-xs font-semibold text-slate-400">Upload PDF mới sẽ tự tạo lại ảnh từng trang.</p>
+                        </div>
+                      </div>
                       <div className="flex flex-col gap-3 md:flex-row">
                         <input
                           type="text"
                           placeholder="URL file PDF..."
                           value={editForm.pdfUrl || ''}
                           onChange={e => setEditForm(prev => ({ ...prev, pdfUrl: e.target.value }))}
-                          className="flex-1 rounded-xl bg-white px-4 py-3 font-medium outline-none"
+                          className="flex-1 rounded-2xl border border-blue-100 bg-white px-4 py-3 font-medium outline-none focus:border-blue-500"
                         />
                         <input type="file" ref={editFileInputRef} className="hidden" accept=".pdf" onChange={handleEditFileUpload} />
                         <button
                           onClick={() => editFileInputRef.current?.click()}
                           disabled={isUploading}
-                          className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                          className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-50"
                         >
                           Tải PDF mới
                         </button>
@@ -1431,9 +1450,17 @@ export const ExamManagement: React.FC = () => {
                       {uploadStatus && <p className="mt-3 text-sm font-bold text-blue-600">{uploadStatus}</p>}
                     </div>
 
-                    <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="mb-4 flex items-center justify-between gap-3">
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-400">Ảnh trang đề ({editForm.imagePages?.length || 0} trang)</label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-black uppercase tracking-wider text-slate-500">Ảnh trang đề ({editForm.imagePages?.length || 0} trang)</label>
+                            <p className="text-xs font-semibold text-slate-400">Kéo thứ tự bằng nút lên/xuống hoặc dán URL ảnh ngoài.</p>
+                          </div>
+                        </div>
                         <button
                           onClick={() => setEditForm(prev => ({ ...prev, imagePages: [] }))}
                           className="text-sm font-black text-rose-600 hover:text-rose-700"
@@ -1445,7 +1472,7 @@ export const ExamManagement: React.FC = () => {
                         <input
                           type="text"
                           placeholder="Dán URL ảnh rồi Enter..."
-                          className="flex-1 rounded-xl bg-white px-4 py-3 font-medium outline-none"
+                          className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium outline-none focus:border-blue-500 focus:bg-white"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const url = (e.target as HTMLInputElement).value.trim();
@@ -1460,14 +1487,14 @@ export const ExamManagement: React.FC = () => {
                         <button
                           onClick={() => editImageInputRef.current?.click()}
                           disabled={isUploading}
-                          className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                          className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                         >
                           Tải ảnh
                         </button>
                       </div>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         {editForm.imagePages?.map((img, idx) => (
-                          <div key={`${img}-${idx}`} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                          <div key={`${img}-${idx}`} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
                             <div className="absolute left-2 top-2 z-10 rounded-lg bg-slate-900/80 px-2 py-1 text-xs font-black text-white">Trang {idx + 1}</div>
                             <img src={getImageUrl(img)} alt={`Page ${idx + 1}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                             <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -1603,7 +1630,7 @@ export const ExamManagement: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+              <div className="shrink-0 border-t border-slate-100 bg-slate-50/90 p-5 flex justify-end gap-3">
                 <button
                   onClick={() => setEditingExam(null)}
                   className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
@@ -1621,7 +1648,10 @@ export const ExamManagement: React.FC = () => {
                       Đang lưu...
                     </>
                   ) : (
-                    'Lưu thay đổi'
+                    <>
+                      <Save className="h-4 w-4" />
+                      Lưu thay đổi
+                    </>
                   )}
                 </button>
               </div>
@@ -1719,5 +1749,3 @@ export const ExamManagement: React.FC = () => {
     </div>
   );
 };
-
-

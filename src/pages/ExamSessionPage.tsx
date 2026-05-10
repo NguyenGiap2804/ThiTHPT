@@ -158,8 +158,12 @@ export const ExamSessionPage: React.FC = () => {
             disabled={isFinished}
             className="bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-60 text-white px-4 md:px-8 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-200 active:scale-95 text-sm md:text-base"
           >
-            <Send className="w-4 h-4" />
-            Nộp bài
+            {isFinished ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            {isFinished ? 'Đang nộp...' : 'Nộp bài'}
           </button>
         </div>
       </header>
@@ -294,7 +298,10 @@ export const ExamSessionPage: React.FC = () => {
                   )}
                 >
                   {isFinished ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Đang nộp...
+                    </>
                   ) : (
                     <>
                       <Send className="w-4 h-4" />

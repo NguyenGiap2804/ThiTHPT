@@ -42,6 +42,23 @@ async function runInitialSchema() {
   console.log("✅ Initial schema applied.");
 }
 
+async function hasExistingApplicationSchema(): Promise<boolean> {
+  const rows = await query<{ users: string | null; exams: string | null }>(`
+    SELECT
+      to_regclass('public."Users"')::text as users,
+      to_regclass('public."Exams"')::text as exams
+  `);
+  const row = rows[0];
+  return Boolean(row?.users || row?.exams);
+}
+
+async function markInitialSchemaAsApplied() {
+  await query(
+    `INSERT INTO "SchemaMigrations" (name) VALUES ($1) ON CONFLICT DO NOTHING`,
+    ["schema_pg.sql"]
+  );
+}
+
 async function main() {
   try {
     await ensureMigrationTable();
@@ -50,7 +67,12 @@ async function main() {
     
     // If schema_pg.sql hasn't been applied yet, run it
     if (!applied.has("schema_pg.sql")) {
-      await runInitialSchema();
+      if (await hasExistingApplicationSchema()) {
+        console.log("Existing application tables found; marking initial schema as applied without running reset schema.");
+        await markInitialSchemaAsApplied();
+      } else {
+        await runInitialSchema();
+      }
       applied.add("schema_pg.sql");
     }
 

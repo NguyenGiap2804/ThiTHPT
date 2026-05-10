@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ImageOff, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
 import { cn, getImageUrl } from '../lib/utils';
@@ -14,7 +14,8 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
   const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const imageUrls = images.map(getImageUrl);
+  const imageSignature = images.join('|');
+  const imageUrls = useMemo(() => images.map(getImageUrl), [imageSignature]);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.4));
@@ -33,39 +34,65 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
     setCurrentPage(idx);
   };
 
-  useEffect(() => {
-    const observerOptions = {
-      root: scrollContainerRef.current,
-      threshold: 0.3,
-    };
+  const syncCurrentPage = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || imageUrls.length === 0) return;
 
-    const observer = new IntersectionObserver((entries) => {
-      // Find the entry with the highest intersection ratio among those currently intersecting
-      const intersectingEntries = entries.filter(e => e.isIntersecting);
-      if (intersectingEntries.length > 0) {
-        // Sort by intersectionRatio descending and take the first one
-        const bestEntry = intersectingEntries.reduce((prev, current) => 
-          (prev.intersectionRatio > current.intersectionRatio) ? prev : current
-        );
-        const index = parseInt(bestEntry.target.getAttribute('data-page-index') || '0');
-        setCurrentPage(index);
+    const containerRect = container.getBoundingClientRect();
+    const targetY = containerRect.top + Math.min(containerRect.height * 0.35, 260);
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    pageRefs.current.forEach((page, index) => {
+      if (!page) return;
+      const rect = page.getBoundingClientRect();
+      const pageAnchor = rect.top <= targetY && rect.bottom >= targetY
+        ? targetY
+        : rect.top;
+      const distance = Math.abs(pageAnchor - targetY);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
       }
-    }, observerOptions);
-
-    pageRefs.current.forEach((ref) => {
-      if (ref) observer.observe(ref);
     });
 
-    return () => observer.disconnect();
-  }, [images.length]);
+    setCurrentPage(prev => (prev === bestIndex ? prev : bestIndex));
+  }, [imageUrls.length]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    let frame = 0;
+    const scheduleSync = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(syncCurrentPage);
+    };
+
+    container.addEventListener('scroll', scheduleSync, { passive: true });
+    window.addEventListener('resize', scheduleSync);
+    scheduleSync();
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      container.removeEventListener('scroll', scheduleSync);
+      window.removeEventListener('resize', scheduleSync);
+    };
+  }, [imageUrls.length, syncCurrentPage]);
 
   useEffect(() => {
     setFailedImages(new Set());
     setCurrentPage(0);
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
-  }, [images.join('|')]);
+    pageRefs.current = pageRefs.current.slice(0, imageUrls.length);
+
+    const frame = window.requestAnimationFrame(() => {
+      scrollContainerRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      setCurrentPage(0);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [imageSignature, imageUrls.length]);
 
   return (
     <div className={cn(
@@ -168,10 +195,10 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
                   scale: zoom,
                   transformOrigin: 'top center'
                 }}
-                className="shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-sm bg-white h-fit max-w-[900px] w-full"
+                className="shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-sm bg-white aspect-[3/4] min-h-[360px] max-w-[900px] w-full overflow-hidden"
               >
                 {failedImages.has(imageUrl) ? (
-                  <div className="flex min-h-[360px] w-full flex-col items-center justify-center gap-3 p-8 text-center text-slate-500">
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-8 text-center text-slate-500">
                     <ImageOff className="h-10 w-10 text-slate-400" />
                     <div>
                       <p className="text-sm font-bold text-slate-700">Không tải được ảnh trang {idx + 1}</p>
@@ -184,7 +211,7 @@ export const ExamImageViewer: React.FC<ExamImageViewerProps> = ({ images }) => {
                   <img
                     src={imageUrl}
                     alt={`Exam Page ${idx + 1}`}
-                    className="w-full h-auto select-none"
+                    className="w-full h-full object-contain select-none"
                     referrerPolicy="no-referrer"
                     onError={() => markImageFailed(imageUrl)}
                   />

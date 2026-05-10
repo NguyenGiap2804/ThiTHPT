@@ -58,8 +58,10 @@ const getSupabaseClient = () => {
 
 export const getUploadStorageLabel = () => {
   const mode = getUploadStorageMode();
-  if (mode === "local") return "local";
-  if (mode === "auto" && !isSupabaseStorageConfigured()) return "local";
+  if (mode === "local") {
+    return process.env.NODE_ENV === "production" ? "local-disabled-in-production" : "local";
+  }
+  if (mode === "auto" && !isSupabaseStorageConfigured() && process.env.NODE_ENV !== "production") return "local";
   return `supabase:${supabaseBucket}`;
 };
 
@@ -134,7 +136,13 @@ export const saveUploadedFile = async (
 ): Promise<StoredUpload> => {
   const mode = getUploadStorageMode();
 
-  if (mode === "local" || (mode === "auto" && !isSupabaseStorageConfigured())) {
+  if (process.env.NODE_ENV === "production" && mode !== "supabase") {
+    throw new Error(
+      "Production uploads must use Supabase Storage. Set UPLOAD_STORAGE=supabase and configure SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_STORAGE_BUCKET."
+    );
+  }
+
+  if (mode === "local" || (mode === "auto" && !isSupabaseStorageConfigured() && process.env.NODE_ENV !== "production")) {
     return saveToLocalUploads(file, filename);
   }
 

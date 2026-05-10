@@ -11,6 +11,7 @@
     "dev": "tsx watch src/index.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:check": "tsx src/check-data.ts",
+    "storage:backfill": "tsx src/scripts/backfill-upload-storage.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit"

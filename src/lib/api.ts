@@ -4,6 +4,18 @@ import { API_BASE_URL } from './config';
 /**
  * Common fetch wrapper
  */
+export class ApiError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('thpt_token');
   const headers = {
@@ -33,7 +45,7 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise
 
   if (!response.ok) {
     const errorMessage = responseData.message || responseData.error || `Server Error (${response.status})`;
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, response.status, responseData);
   }
 
   // Return data property if it exists, otherwise the whole object
@@ -145,7 +157,7 @@ export const adminApi = {
  * Upload APIs
  */
 export const uploadApi = {
-  file: async (file: File): Promise<{ url: string }> => {
+  file: async (file: File): Promise<{ url: string; filename: string; mimetype: string; size: number; storageProvider: string; objectKey?: string }> => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -161,7 +173,7 @@ export const uploadApi = {
     const responseData = await response.json();
 
     if (!response.ok) {
-      throw new Error(responseData.message || responseData.error || 'Upload failed');
+      throw new ApiError(responseData.message || responseData.error || 'Upload failed', response.status, responseData);
     }
 
     return responseData.data;

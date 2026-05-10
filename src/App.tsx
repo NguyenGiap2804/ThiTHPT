@@ -16,7 +16,18 @@ import { LoginPage } from './pages/LoginPage';
 import { Toast } from './components/Toast';
 
 const AppRoutes = () => {
-  const { currentUser, notifications, markNotificationRead } = useApp();
+  const { currentUser, authStatus, notifications, markNotificationRead } = useApp();
+
+  if (!currentUser && authStatus === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white px-8 py-7 shadow-xl shadow-slate-200/60">
+          <div className="h-11 w-11 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
+          <p className="text-sm font-bold text-slate-500">Đang kiểm tra phiên đăng nhập...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return (

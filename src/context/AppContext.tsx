@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Attempt, Subject, Exam, Notification, User } from '../types';
 import { SUBJECTS } from '../mockData';
-import { examApi, authApi, attemptApi, notificationApi } from '../lib/api';
+import { ApiError, examApi, authApi, attemptApi, notificationApi } from '../lib/api';
+
+type AuthStatus = 'checking' | 'authenticated' | 'anonymous';
 
 interface AppContextType {
   subjects: Subject[];
@@ -9,6 +11,7 @@ interface AppContextType {
   attempts: Attempt[];
   notifications: Notification[];
   currentUser: User | null;
+  authStatus: AuthStatus;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
@@ -34,42 +37,97 @@ const readStoredUser = (): User | null => {
   }
 };
 
+const getInitialAuthStatus = (): AuthStatus => {
+  const token = localStorage.getItem('thpt_token');
+  if (!token) return 'anonymous';
+  return readStoredUser() ? 'authenticated' : 'checking';
+};
+
+const readInitialUser = (): User | null => {
+  return localStorage.getItem('thpt_token') ? readStoredUser() : null;
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [subjects] = useState<Subject[]>(SUBJECTS);
-  const [currentUser, setCurrentUser] = useState<User | null>(readStoredUser);
+  const [currentUser, setCurrentUser] = useState<User | null>(readInitialUser);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>(getInitialAuthStatus);
   const [exams, setExams] = useState<Exam[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const addNotification = (notif: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+    const now = Date.now();
     const newNotif: Notification = {
       ...notif,
-      id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      timestamp: new Date().toISOString(),
+      id: `local-${now}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: new Date(now).toISOString(),
       read: false,
     };
-    setNotifications(prev => [newNotif, ...prev]);
+    setNotifications(prev => {
+      const hasRecentDuplicate = prev.some(item => {
+        const itemTime = new Date(item.timestamp).getTime();
+        return (
+          !item.read &&
+          item.title === notif.title &&
+          item.message === notif.message &&
+          item.type === notif.type &&
+          Number.isFinite(itemTime) &&
+          now - itemTime < 3500
+        );
+      });
+
+      return hasRecentDuplicate ? prev : [newNotif, ...prev];
+    });
   };
 
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('thpt_user', JSON.stringify(currentUser));
-    } else {
+    } else if (authStatus === 'anonymous') {
       localStorage.removeItem('thpt_user');
     }
-  }, [currentUser]);
+  }, [authStatus, currentUser]);
 
   useEffect(() => {
     const token = localStorage.getItem('thpt_token');
-    if (!token) return;
+    if (!token) {
+      setAuthStatus('anonymous');
+      return;
+    }
+
+    let cancelled = false;
 
     authApi.getProfile()
-      .then(setCurrentUser)
-      .catch(() => {
-        localStorage.removeItem('thpt_token');
-        localStorage.removeItem('thpt_user');
-        setCurrentUser(null);
+      .then(user => {
+        if (cancelled) return;
+        setCurrentUser(user);
+        setAuthStatus('authenticated');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+          localStorage.removeItem('thpt_token');
+          localStorage.removeItem('thpt_user');
+          setCurrentUser(null);
+          setAuthStatus('anonymous');
+          return;
+        }
+
+        console.warn('Could not refresh profile, keeping cached session if available:', error);
+        const cachedUser = readStoredUser();
+        if (cachedUser) {
+          setCurrentUser(cachedUser);
+          setAuthStatus('authenticated');
+        } else {
+          setCurrentUser(null);
+          setAuthStatus('anonymous');
+        }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -110,8 +168,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const login = async (email: string, password: string) => {
     try {
       const response = await authApi.login({ email, password });
-      setCurrentUser(response.user);
       localStorage.setItem('thpt_token', response.token);
+      setCurrentUser(response.user);
+      setAuthStatus('authenticated');
       addNotification({
         title: 'Thành công',
         message: 'Chào mừng bạn đã trở lại!',
@@ -130,8 +189,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const register = async (email: string, password: string, name: string) => {
     try {
       const response = await authApi.register({ email, password, name });
-      setCurrentUser(response.user);
       localStorage.setItem('thpt_token', response.token);
+      setCurrentUser(response.user);
+      setAuthStatus('authenticated');
       addNotification({
         title: 'Thành công',
         message: 'Đăng ký tài khoản thành công!',
@@ -149,6 +209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = () => {
     setCurrentUser(null);
+    setAuthStatus('anonymous');
     setAttempts([]);
     setNotifications([]);
     localStorage.removeItem('thpt_token');
@@ -171,23 +232,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateExam = async (exam: Exam) => {
-    const savedExam = await examApi.update(exam.id, exam);
-    setExams(prev => prev.map(item => item.id === savedExam.id ? savedExam : item));
-    addNotification({
-      title: 'Thành công',
-      message: 'Đã cập nhật đề thi',
-      type: 'success',
-    });
+    const previousExams = exams;
+    setExams(prev => prev.map(item => item.id === exam.id ? { ...item, ...exam } : item));
+
+    try {
+      const savedExam = await examApi.update(exam.id, exam);
+      setExams(prev => prev.map(item => item.id === savedExam.id ? savedExam : item));
+      addNotification({
+        title: 'Thành công',
+        message: 'Đã cập nhật đề thi',
+        type: 'success',
+      });
+    } catch (error) {
+      setExams(previousExams);
+      addNotification({
+        title: 'Lỗi',
+        message: 'Không thể cập nhật đề thi. Dữ liệu đã được khôi phục.',
+        type: 'error',
+      });
+      throw error;
+    }
   };
 
   const deleteExam = async (id: string) => {
-    await examApi.delete(id);
+    const previousExams = exams;
     setExams(prev => prev.filter(e => e.id !== id));
-    addNotification({
-      title: 'Thành công',
-      message: 'Đã xóa đề thi khỏi hệ thống',
-      type: 'success',
-    });
+
+    try {
+      await examApi.delete(id);
+      addNotification({
+        title: 'Thành công',
+        message: 'Đã xóa đề thi khỏi hệ thống',
+        type: 'success',
+      });
+    } catch (error) {
+      setExams(previousExams);
+      addNotification({
+        title: 'Lỗi',
+        message: 'Không thể xóa đề thi. Danh sách đã được khôi phục.',
+        type: 'error',
+      });
+      throw error;
+    }
   };
 
   const fetchExamById = async (id: string) => {
@@ -241,6 +327,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       attempts,
       notifications,
       currentUser,
+      authStatus,
       login,
       register,
       logout,
